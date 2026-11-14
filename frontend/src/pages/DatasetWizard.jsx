@@ -16,6 +16,7 @@ import {
   Layers
 } from 'lucide-react';
 import apiClient from '../services/api';
+import PredictionCutoffPicker from '../components/PredictionCutoffPicker';
 
 export default function DatasetWizard({ initialMode, onComplete }) {
   // Wizard active step: 1 = Upload, 2 = Configure, 3 = Results
@@ -40,6 +41,7 @@ export default function DatasetWizard({ initialMode, onComplete }) {
   });
   const [assumeAvailableAtEventTime, setAssumeAvailableAtEventTime] = useState(false);
   const [cutoffTime, setCutoffTime] = useState('2026-05-31T00:00:00Z');
+  const [isCutoffValid, setIsCutoffValid] = useState(true);
   const [selectedFeatures, setSelectedFeatures] = useState([
     'count_7d',
     'count_30d',
@@ -143,6 +145,10 @@ export default function DatasetWizard({ initialMode, onComplete }) {
 
   // Step 3 Execution: Generate Features
   const handleGenerateFeatures = async () => {
+    if (!isCutoffValid || !cutoffTime) {
+      alert("Please select a valid prediction cutoff date and time.");
+      return;
+    }
     setIsGenerating(true);
     try {
       const payload = {
@@ -523,23 +529,18 @@ export default function DatasetWizard({ initialMode, onComplete }) {
                 <p className="text-[11px] text-[#A1A1B5] mt-1">E.g., transaction_type, event_type, action</p>
               </div>
 
-              <div className="sm:col-span-2">
-                <label className="block font-medium text-[#F8F7FF] mb-1">
-                  What prediction cutoff should be used? (Cutoff T)
-                </label>
-                <input
-                  type="text"
-                  value={cutoffTime}
-                  onChange={(e) => setCutoffTime(e.target.value)}
-                  placeholder="YYYY-MM-DDTHH:MM:SSZ"
-                  className="w-full bg-[#211936] border border-[rgba(168,85,247,0.25)] rounded-xl px-3 py-2 text-[#F8F7FF] font-mono focus:outline-none focus:border-[#A855F7]"
-                />
-                <p className="text-[11px] text-[#A1A1B5] mt-1">All features will be constructed as of this exact UTC moment</p>
-              </div>
             </div>
           </div>
 
-          {/* Section B: Feature Options Selection */}
+          {/* Section B: Prediction Date & Time (Cutoff T) */}
+          <PredictionCutoffPicker
+            value={cutoffTime}
+            onChange={setCutoffTime}
+            onValidityChange={setIsCutoffValid}
+            disabled={isGenerating}
+          />
+
+          {/* Section C: Feature Options Selection */}
           <div className="bg-[#16112B] border border-[rgba(168,85,247,0.18)] rounded-2xl p-6 space-y-4">
             <h3 className="text-sm font-semibold text-[#F8F7FF] flex items-center space-x-2">
               <Layers className="w-4 h-4 text-[#A855F7]" />
@@ -693,7 +694,7 @@ export default function DatasetWizard({ initialMode, onComplete }) {
 
             <button
               onClick={handleGenerateFeatures}
-              disabled={isGenerating || !columnMapping.entity_id || !columnMapping.event_time}
+              disabled={isGenerating || !columnMapping.entity_id || !columnMapping.event_time || !isCutoffValid || !cutoffTime}
               className="flex items-center space-x-2 bg-gradient-to-r from-[#8B5CF6] to-[#A855F7] hover:opacity-95 text-white font-semibold py-2.5 px-6 rounded-xl text-xs transition-all shadow-[0_0_20px_-3px_rgba(168,85,247,0.5)] disabled:opacity-50 hover:scale-[1.02]"
             >
               {isGenerating ? (

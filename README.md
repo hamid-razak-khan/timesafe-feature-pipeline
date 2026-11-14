@@ -1,55 +1,100 @@
 # TimeSafe — Point-in-Time ML Feature Engineering Platform
 
-[![Tests](https://img.shields.io/badge/pytest-57%20passed-10b981.svg)](backend/tests/)
+[![Tests](https://img.shields.io/badge/pytest-60%20passed-10b981.svg)](backend/tests/)
 [![Python](https://img.shields.io/badge/python-3.11+-3b82f6.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-06b6d4.svg)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18.2+-61dafb.svg)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-5.4+-646cff.svg)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4+-38bdf8.svg)](https://tailwindcss.com/)
 [![Throughput](https://img.shields.io/badge/benchmark-5%2C672%20rows%2Fsec-f59e0b.svg)](scripts/benchmark.py)
 
 A reproducible, high-performance Data Engineering pipeline and Feature Store designed to eliminate **target leakage** and **train/serve skew** in machine learning feature extraction from timestamped transactional event streams.
 
-TimeSafe provides a domain-neutral feature extraction engine that transforms raw transactional data (such as banking transfers, retail orders, e-commerce checkouts, and logistics deliveries) into point-in-time correct ML feature vectors.
+TimeSafe provides a domain-neutral feature extraction engine that transforms raw transactional data (such as banking transfers, retail orders, e-commerce checkouts, and logistics deliveries) into point-in-time correct ML feature vectors with complete audit traceability.
+
+> **Project Origin**: Developed for the **YottaFlex AI Data Forward Deployed Engineer hackathon assignment**.
 
 ---
 
-## 1. Project Title and Introduction
+## Table of Contents
+
+1. [Project Overview](#1-project-overview)
+2. [Problem Statement](#2-problem-statement)
+3. [Key Features](#3-key-features)
+4. [System Architecture](#4-system-architecture)
+5. [Project Structure](#5-project-structure)
+6. [Technology Stack](#6-technology-stack)
+7. [Installation and Setup](#7-installation-and-setup)
+8. [User Workflow and Navigation](#8-user-workflow-and-navigation)
+9. [Record History and Data Traceability](#9-record-history-and-data-traceability)
+10. [Pipeline Processing History](#10-pipeline-processing-history)
+11. [Rejected Record Correction and Safe Retry](#11-rejected-record-correction-and-safe-retry)
+12. [Mathematical Reconciliation and Observability](#12-mathematical-reconciliation-and-observability)
+13. [Point-in-Time Correctness Rules](#13-point-in-time-correctness-rules)
+14. [Feature Engineering Definitions](#14-feature-engineering-definitions)
+15. [Data Validation and Quarantine Rules](#15-data-validation-and-quarantine-rules)
+16. [Idempotency and Failure Recovery](#16-idempotency-and-failure-recovery)
+17. [Automated Testing & Verification Evidence](#17-automated-testing--verification-evidence)
+18. [Performance Benchmarking](#18-performance-benchmarking)
+19. [API Reference & Swagger Documentation](#19-api-reference--swagger-documentation)
+20. [Database Design & Schema](#20-database-design--schema)
+21. [Design Decisions and Trade-offs](#21-design-decisions-and-trade-offs)
+22. [Future Improvements & License](#22-future-improvements--license)
+
+---
+
+## 1. Project Overview
 
 **TimeSafe — Point-in-Time ML Feature Engineering Platform**
 
-TimeSafe transforms raw historical event streams into point-in-time consistent feature representations suitable for tabular machine learning models (e.g., XGBoost, LightGBM, scikit-learn). The platform enforces strict dual-timestamp observation rules, explicit quarantine of anomalous or malformed records, idempotent batch execution, and mathematical reconciliation accounting.
+TimeSafe is a generalized, reproducible transactional ML feature engineering platform built using **React, Vite, Tailwind CSS, FastAPI, Python, Pandas, SQLAlchemy, SQLite, and Pytest**.
 
-*Note: TimeSafe focuses on the Data Engineering and Feature Store layers (ingestion, validation, temporal isolation, feature extraction, and export); it does not train or host ML inference models.*
+The platform is designed to ingest arbitrary historical transactional datasets, validate records against strict data quality contracts, generate point-in-time correct ML features, and provide end-to-end data provenance through full record lifecycle auditing and pipeline processing history.
+
+### Supported Transactional Domains
+TimeSafe is completely domain-neutral and does not hardcode domain-specific business logic into its core engine. It supports any timestamped, entity-based event stream:
+- **Banking & Fintech**: Account transfers, deposits, withdrawals, credit card transactions.
+- **E-Commerce & Retail**: Orders, item purchases, cancellations, refunds, returns.
+- **Subscription Services**: Payment renewals, plan upgrades, chargebacks, churn indicators.
+- **Logistics & Supply Chain**: Package scans, shipment status transitions, dispatch events.
+- **Healthcare & Telemetry**: Patient vitals recordings, device telemetry logs, sensor event streams.
+
+*Note: TimeSafe focuses on the Data Engineering and Feature Store layers (ingestion, validation, quarantine, temporal isolation, feature extraction, export, and audit reconciliation); it does not train or host ML inference models.*
 
 ---
 
 ## 2. Problem Statement
 
-In predictive machine learning on transactional data (such as customer churn, fraud detection, purchase propensity, or shipment delay estimation), standard aggregation queries frequently cause **target leakage**:
-- **Future Information Leakage**: Computing features using transactions that occurred after the prediction cutoff timestamp $T$.
-- **Ingestion Latency Leakage**: Computing features using transactions that occurred before $T$, but were physically received or loaded into the analytical warehouse after $T$ (late-arriving records).
-- **Train/Serve Skew**: Implementing feature aggregation logic in Python for real-time serving while relying on divergent SQL queries for offline training datasets.
-- **Silent Failures and Inconsistent Re-runs**: Ingesting duplicate records or silently discarding invalid rows without operational accounting or quarantine traceability.
+In predictive machine learning on transactional data (such as fraud detection, customer churn, purchase propensity, or shipment delay estimation), standard aggregation queries frequently introduce subtle data corruption:
 
-TimeSafe solves these challenges by enforcing a unified, point-in-time calculation engine across both offline batch datasets and real-time preview requests.
+1. **Future Information Leakage**: Computing features using transactions that occurred after the prediction cutoff timestamp $T$.
+2. **Ingestion Latency Leakage**: Computing features using transactions that occurred before $T$, but were physically received or loaded into the analytical warehouse after $T$ (late-arriving records).
+3. **Train/Serve Skew**: Implementing feature aggregation logic in Python for real-time serving while relying on divergent SQL queries for offline training datasets.
+4. **Silent Drops & Lost Provenance**: Discarding corrupted rows without operational quarantine, error classification, or user traceability.
+5. **Retroactive Data Corruption on Reprocessing**: When fixing a quarantined record, backdating its warehouse availability timestamp to the past causes historical feature snapshots generated previously to retroactively change—destroying ML model reproducibility.
 
-*This project was developed for the YottaFlex AI Data Forward Deployed Engineer hackathon assignment.*
+TimeSafe solves these challenges through a unified point-in-time calculation engine, an immutable raw evidence store, and a mathematically sound anti-leakage reprocessing rule.
 
 ---
 
 ## 3. Key Features
 
-- **Domain-Neutral Column Mapping**: Flexible ingestion mapping for arbitrary event schemas (Entity ID, Event Timestamp, Availability Timestamp, Numerical Magnitude, Event Category).
-- **Dual-Timestamp Anti-Leakage Gate**: Enforces $event\_time < T \;\mathbf{AND}\; available\_at \le T$ on every record.
-- **Training/Inference Consistency**: Identical `compute_features()` source of truth used for both batch training generation and single-record preview.
-- **Strict Data Validation & Quarantine**: Validates types, non-negative amounts, and timeline feasibility. Defective rows are isolated in `rejected_records` with line numbers and original raw payloads.
-- **Idempotent Execution**: Re-running ingestion or feature extraction produces safe no-ops for identical records and composite unique constraint updates without key collisions.
-- **Deterministic Synthetic Data Generator**: Generates seedable datasets (`--seed 42`) with controlled data-quality edge cases (late arrivals, negative values, orphan foreign keys).
-- **Formal Mathematical Reconciliation**: Verifies the accounting invariant $\text{Input Rows} = \text{Valid Inserted} + \text{Duplicates Skipped} + \text{Quarantined Rejections}$.
-- **Performance-Optimized Ingestion**: SQLite WAL mode and composite indexing achieving over 5,600 rows/second sustained throughput on 100,000-row streams.
-- **Executive & Operational Dashboard**: 4 high-level KPI cards, accepted vs rejected quality ratio, processing throughput over time, and a "Needs Attention" alert card.
-- **Unified History (Record & Processing)**: Tab A offers full-text search, multi-faceted filtering (dataset, status, error category, date range), and downloadable CSV export; Tab B tracks execution runs and telemetry.
-- **Safe Correction & Reprocessing**: Review & Fix quarantined records with live dry-run validation, immutable audit log preservation, and mathematical anti-leakage guarantee ($\text{effective\_available\_at} = \max(\text{available\_at}, \text{current\_time})$).
-- **Clean 5-Section Navigation**: `Dashboard`, `My Datasets`, `Results`, `History`, and `Advanced Details`.
+- **Generic CSV Dataset Upload**: Drag-and-drop or select any CSV event stream with instant column detection, file size profiling, and first-10-row preview.
+- **Configurable Column Mapping**: Flexible ingestion mapper supporting Entity ID, Event Timestamp, Availability Timestamp, Numerical Magnitude, and Event Category.
+- **User-Friendly Date and Time Selection**: Intuitive date/time pickers for prediction cutoff time $T$ and lookback window boundaries.
+- **Historical Feature Generation**: Automated calculation of rolling aggregations (counts, sums, averages, recency) across configurable lookback windows ($7\text{d}$, $30\text{d}$).
+- **Dual-Timestamp Anti-Leakage Gate**: Enforces $event\_time < T \;\mathbf{AND}\; available\_at \le T$ on every record to eliminate future and latency leakage.
+- **Training and Inference Consistency**: Single shared `compute_features()` implementation for both offline batch generation and single-record real-time preview.
+- **Strict Data Validation & Quarantine**: Validates schemas, types, non-negative amounts, and timeline feasibility. Defective rows are isolated in `rejected_records` with raw JSON and error taxonomy.
+- **Mathematical Reconciliation**: Verifies the row accounting invariant $\text{Input Rows} = \text{Valid Inserted} + \text{Duplicates Skipped} + \text{Quarantined Rejections}$.
+- **Feature Results Explorer & CSV Export**: Interactive data table with client-side searching, column filtering, pagination, and one-click streaming CSV export.
+- **Record History and Audit Lifecycle**: Dedicated ledger tracking raw inputs, status (`accepted`, `rejected`, `corrected`, `reprocessed`), error categories, and historical corrections.
+- **Pipeline Processing History**: Execution telemetry recording run IDs, run types, execution duration, and row counts across all batch runs.
+- **Safe Rejected-Record Correction & Reprocessing**: Review & fix modal with live dry-run validation and anti-leakage guarantee $\text{effective\_available\_at} = \max(\text{available\_at}, \text{current\_utc\_time})$.
+- **Executive & Operational Dashboard**: Dedicated dashboard displaying high-level KPIs, quality ratio breakdown, processing activity charts, and recent activity feed.
+- **Separate Home Page**: Clean, modern welcome screen providing quick start workflows, dataset selection, and sample dataset testing.
+- **Synthetic Dataset Generator**: Deterministic, seedable generator producing 100,000+ records with real-world edge cases (late arrivals, negative amounts, orphaned records).
+- **Automated Test Suite**: 60 unit, integration, boundary, and idempotency tests passing with 100% success in under 3 seconds.
 
 ---
 
@@ -58,93 +103,117 @@ TimeSafe solves these challenges by enforcing a unified, point-in-time calculati
 ```mermaid
 flowchart TD
     subgraph Ingestion["1. Ingestion & Validation"]
-        CSV["Raw Event CSV / Stream\n(customers, transactions, requests)"] --> IngestSvc["Ingestion Service\n(Chunked streaming)"]
+        CSV["Raw Event CSV / Stream\n(arbitrary transactional schemas)"] --> IngestSvc["Ingestion Service\n(Chunked streaming)"]
+        IngestSvc --> HistoryLedger[("Source Record History\n(raw_record immutable store)")]
         IngestSvc --> ValidSvc["Validation Engine\n- Schema & Type Verification\n- Decimal Non-Negativity\n- Timeline Feasibility (avail >= event)\n- Duplicate Detection"]
         ValidSvc -->|"Anomalous / Conflicting"| Quarantine[("Quarantine Store\n(rejected_records table)")]
-        ValidSvc -->|"Valid / Safe No-Op"| CleanStore[("Operational Store (SQLite WAL)\n- customers\n- transactions\n- prediction_requests")]
+        ValidSvc -->|"Valid / Safe No-Op"| CleanStore[("Operational Store (SQLite WAL)\n- customers / entities\n- transactions\n- prediction_requests")]
     end
 
-    subgraph Feature_Engine["2. Point-in-Time Feature Engine"]
-        CleanStore --> PITFilter["Dual-Timestamp Anti-Leakage Filter\nevent_time < T AND available_at <= T\nLookback Windows: [T - 7d, T), [T - 30d, T)"]
+    subgraph Reprocessing["2. Safe Correction & Retry"]
+        Quarantine --> ReviewModal["Review & Fix UI Modal"]
+        ReviewModal --> DryRun["Dry-Run Validation API\n(In-memory rule evaluation)"]
+        DryRun -->|"Passed"| ReprocessSvc["Reprocessing Engine\neffective_available_at = max(avail, now)"]
+        ReprocessSvc --> CleanStore
+        ReprocessSvc -->|"Update Status: corrected"| HistoryLedger
+    end
+
+    subgraph Feature_Engine["3. Point-in-Time Feature Engine"]
+        CleanStore --> PITFilter["Dual-Timestamp Anti-Leakage Gate\nevent_time < T AND available_at <= T\nLookback Windows: [T - 7d, T), [T - 30d, T)"]
         PITFilter --> SharedEngine["Shared compute_features()\n(Zero Train/Serve Skew)"]
-        SharedEngine --> Snapshots[("feature_snapshots\nUnique (customer_id, as_of_time, version)")]
+        SharedEngine --> Snapshots[("feature_snapshots\nUnique (entity_id, as_of_time, version)")]
     end
 
-    subgraph Label_Engine["3. Watermark-Gated Target Labels"]
+    subgraph Label_Engine["4. Watermark-Gated Target Labels"]
         CleanStore --> WatermarkCheck{"Watermark Invariant:\nmax(available_at) >= T + 7d?"}
-        WatermarkCheck -->|"Complete Window"| GenLabel["Compute label_purchase_next_7d\nPurchase in [T, T + 7d)"]
+        WatermarkCheck -->|"Complete Window"| GenLabel["Compute label_purchase_next_7d\nEvent in [T, T + 7d)"]
         WatermarkCheck -->|"Incomplete Window"| OmitLabel["Omit / Mark Unobservable\n(Prevents Negative Label Leakage)"]
-        GenLabel --> TrainingLabels[("training_labels\nUnique (customer_id, as_of_time, version)")]
+        GenLabel --> TrainingLabels[("training_labels\nUnique (entity_id, as_of_time, version)")]
     end
 
-    subgraph Audit["4. Reconciliation & Telemetry"]
-        CleanStore & Quarantine & Snapshots --> ReconEngine["Reconciliation Engine\ninput == accepted + rejected"]
+    subgraph Audit["5. Reconciliation & Observability"]
+        CleanStore & Quarantine & Snapshots --> ReconEngine["Reconciliation Engine\nInput == Valid + Duplicates + Rejects"]
         ReconEngine --> RunLogs[("pipeline_runs table")]
         ReconEngine --> AuditJSON["reports/validation_report.json"]
     end
 
-    subgraph Serving["5. Serving & UI Layer"]
-        Snapshots & RunLogs & Quarantine --> FastAPI["FastAPI Backend (/api)"]
-        FastAPI --> WebUI["React Dashboard (Vite + Tailwind)\n- Home\n- My Datasets (3-Step Wizard)\n- Results Explorer\n- Advanced Telemetry Console"]
+    subgraph Serving["6. Serving & UI Layer"]
+        Snapshots & RunLogs & Quarantine & HistoryLedger --> FastAPI["FastAPI Backend (/api)"]
+        FastAPI --> WebUI["React Frontend (Vite + Tailwind)\n- Home (Welcome & Quick Start)\n- Dashboard (KPIs, Charts, Quality)\n- My Datasets (3-Step Wizard)\n- Results (Feature Explorer & Export)\n- History (Record Audit & Pipeline Runs)\n- Advanced Details (Reconciliation Modal)"]
     end
 ```
 
 ### Layer Responsibilities
-- **React 18 + Vite**: Client interface providing guided dataset upload, column mapping dropdowns, real-time feature preview, and CSV export.
-- **FastAPI Backend**: REST API routing, multipart upload validation, execution orchestration, and audit telemetry.
-- **Python Feature Services**: Pure Python/Pandas transformation engine enforcing temporal isolation boundaries and mathematical invariants.
-- **SQLite Database**: Local embedded relational storage with Write-Ahead Logging (WAL) and composite B-tree indexing.
+- **Frontend Layer (React 18 + Vite + Tailwind CSS)**: Modular SPA offering clean navigation, dataset wizard, column mapper, interactive feature explorer, record audit history, and live correction modal.
+- **API Routing Layer (FastAPI)**: Asynchronous REST controllers providing OpenAPI documentation, multipart CSV streaming, dry-run validation, and telemetry endpoints.
+- **Core Processing Layer (Python 3.11 + Pandas)**: Domain-neutral feature extraction engine enforcing temporal isolation boundaries, mathematical reconciliation, and idempotency invariants.
+- **Persistence Layer (SQLAlchemy 2.0 + SQLite WAL)**: Embedded relational storage configured with Write-Ahead Logging and composite B-tree indexes for high throughput.
 
 ---
 
-## 5. Technology Stack
-
-| Technology | Layer | Purpose |
-|---|---|---|
-| **Python 3.11+** | Backend Runtime | Core execution environment and pipeline processing |
-| **FastAPI 0.104+** | Backend API | High-performance asynchronous REST API and OpenAPI generation |
-| **Pydantic v2** | Backend Validation | Request/response schema contracts and type coercion |
-| **Pandas 2.2+** | Data Processing | Vectorized in-memory filtering and event transformations |
-| **SQLAlchemy 2.0** | Database ORM | Schema modeling, composite indexing, and database connection abstraction |
-| **SQLite (WAL mode)** | Data Store | Zero-configuration local relational database with ACID compliance |
-| **Pytest 9.2+** | Testing | Automated test suite covering edge cases, boundaries, and API routes |
-| **React 18.2** | Frontend | Reactive component hierarchy for dataset wizard and results table |
-| **Vite 5.4** | Frontend Build | Fast ES-module development server and production bundler |
-| **Tailwind CSS 3.4** | Frontend Styling | Modern utility-first interface design |
-| **Lucide React** | Frontend Icons | Visual icons for workflow steps, alerts, and navigation |
-
----
-
-## 6. Project Structure
+## 5. Project Structure
 
 ```
 timesafe-feature-pipeline/
 ├── backend/
 │   ├── api/                     # FastAPI route controllers
+│   │   ├── __init__.py          # API router aggregation
 │   │   ├── features.py          # Feature extraction and preview endpoints
+│   │   ├── history.py           # Dashboard metrics, record history & safe reprocessing
 │   │   ├── ingestion.py         # File upload and stream ingestion endpoints
 │   │   ├── pipeline.py          # Batch run execution and run query endpoints
 │   │   └── reports.py           # Reconciliation and reject query endpoints
 │   ├── app/                     # Module wrapper supporting 'uvicorn app.main:app'
 │   │   └── main.py
 │   ├── services/                # Core business logic services
+│   │   ├── __init__.py
 │   │   ├── feature_engineering.py # Shared point-in-time calculation engine
+│   │   ├── history_service.py   # Record lifecycle, dashboard metrics & reprocessing
 │   │   ├── ingestion_service.py # Chunked CSV streaming and idempotency checks
 │   │   ├── label_generation.py  # Watermark-gated training label extractor
 │   │   ├── pipeline_runner.py   # Batch orchestrator and run telemetry logger
 │   │   ├── reconciliation.py    # Formal mathematical data accounting engine
 │   │   └── validation_service.py# Data quality rules, schema checks, and UTC parsers
-│   ├── tests/                   # Pytest test suite (50 automated tests)
+│   ├── tests/                   # Pytest test suite (60 automated tests)
+│   │   ├── test_api.py          # REST endpoint tests (14 tests)
+│   │   ├── test_features.py     # Boundary condition & parity tests (4 tests)
+│   │   ├── test_generic_features.py # Multi-domain mapping tests (7 tests)
+│   │   ├── test_idempotency.py  # Re-run safety & duplicate tests (2 tests)
+│   │   ├── test_ingestion.py    # Ingestion & generator tests (6 tests)
+│   │   ├── test_leakage.py      # Dual-timestamp anti-leakage tests (5 tests)
+│   │   ├── test_recovery.py     # Atomic rollback & reconciliation tests (2 tests)
+│   │   ├── test_reprocessing.py # Record history, dashboard & retry tests (10 tests)
+│   │   └── test_validation.py   # Data validation & quarantine tests (10 tests)
 │   ├── config.py                # Pydantic environment settings
 │   ├── main.py                  # FastAPI application entrypoint
 │   ├── requirements.txt         # Pinned backend dependencies
 │   └── schemas.py               # Pydantic DTO models
 ├── frontend/
 │   ├── src/
-│   │   ├── components/          # Reusable UI widgets (Navbar, AdvancedModal, etc.)
-│   │   ├── pages/               # Views (Home, DatasetWizard, Results, PipelineRuns)
-│   │   ├── services/            # Axios API client bindings
+│   │   ├── components/          # Reusable UI widgets
+│   │   │   ├── AdvancedModal.jsx # System audit, schema docs & reconciliation modal
+│   │   │   ├── CorrectionModal.jsx # Review & Fix modal with dry-run validation
+│   │   │   ├── FeatureTable.jsx  # Feature snapshot data table
+│   │   │   ├── MetricCard.jsx    # KPI metric card component
+│   │   │   ├── Navbar.jsx        # Top navigation bar with active route highlighting
+│   │   │   ├── QualityChart.jsx  # Data quality breakdown chart
+│   │   │   ├── RecordDetailModal.jsx # Full-text audit inspection modal
+│   │   │   ├── RunsTable.jsx     # Pipeline execution telemetry table
+│   │   │   ├── Sidebar.jsx       # Optional side navigation
+│   │   │   └── UploadForm.jsx    # CSV upload form
+│   │   ├── pages/               # Primary view pages
+│   │   │   ├── Dashboard.jsx    # Executive dashboard (KPIs, charts, activity)
+│   │   │   ├── DataIngestion.jsx# Dedicated ingestion view
+│   │   │   ├── DataQuality.jsx  # Data quality overview
+│   │   │   ├── DatasetWizard.jsx# 3-step dataset upload & feature mapping wizard
+│   │   │   ├── FeatureExplorer.jsx # Feature inspection page
+│   │   │   ├── History.jsx      # Unified Record History & Pipeline Runs view
+│   │   │   ├── Home.jsx         # Clean welcome page & workflow launcher
+│   │   │   ├── PipelineRuns.jsx # Dedicated run history page
+│   │   │   └── Results.jsx      # Feature snapshots explorer & CSV export
+│   │   ├── services/            # Axios API client bindings (api.js)
 │   │   ├── App.jsx              # Application root and state router
+│   │   ├── index.css            # Tailwind custom styling & scrollbar rules
 │   │   └── main.jsx             # React DOM entrypoint
 │   ├── package.json             # Node dependencies and scripts
 │   ├── tailwind.config.js       # Tailwind configuration
@@ -177,22 +246,30 @@ timesafe-feature-pipeline/
 
 ---
 
-## 7. Prerequisites
+## 6. Technology Stack
 
-Before running the application, verify that your environment has:
-- **Python**: Version `3.11` or higher (`python --version`)
-- **Node.js**: Version `18.0` or higher (`node --version`)
-- **npm**: Version `9.0` or higher (`npm --version`)
-- **Git**: Installed and available in your shell (`git --version`)
-- **SQLite3**: Standard library in Python 3.11+ on Windows, Linux, and macOS.
+| Technology | Layer | Purpose |
+|---|---|---|
+| **Python 3.11+** | Backend Runtime | Core execution environment and pipeline processing |
+| **FastAPI 0.104+** | Backend API | High-performance asynchronous REST API and OpenAPI generation |
+| **Pydantic v2** | Backend Validation | Request/response schema contracts and type coercion |
+| **Pandas 2.2+** | Data Processing | Vectorized in-memory filtering and event transformations |
+| **SQLAlchemy 2.0** | Database ORM | Schema modeling, composite indexing, and database connection abstraction |
+| **SQLite (WAL mode)** | Data Store | Local relational database with Write-Ahead Logging for high concurrency |
+| **Pytest 9.2+** | Testing | Automated test suite covering edge cases, boundaries, and API routes |
+| **React 18.2** | Frontend | Reactive component hierarchy for dataset wizard, dashboard, and tables |
+| **Vite 5.4** | Frontend Build | Fast ES-module development server and production bundler |
+| **Tailwind CSS 3.4** | Frontend Styling | Modern utility-first interface design with dark neon accents |
+| **Recharts 2.15** | Data Visualization | Interactive SVG charts for data quality and activity timelines |
+| **Lucide React** | Frontend Icons | Visual icons for workflow steps, alerts, and navigation |
 
 ---
 
-## 8. Installation and Setup
+## 7. Installation and Setup
 
 ### 1. Clone the Repository
 ```powershell
-git clone https://github.com/[USER]/timesafe-feature-pipeline.git
+git clone https://github.com/hamid-razak-khan/timesafe-feature-pipeline.git
 cd timesafe-feature-pipeline
 ```
 
@@ -217,7 +294,7 @@ Copy-Item .env.example .env
 
 ### 4. Initialize Database & Seed Sample Data
 ```powershell
-python scripts/generate_data.py --customers 20 --transactions 100 --predictions 15 --seed 42
+python scripts/generate_data.py --customers 25 --transactions 100 --predictions 15 --seed 42
 ```
 
 ### 5. Start the FastAPI Backend
@@ -244,97 +321,234 @@ npm run dev
 
 ---
 
-## 9. Environment Configuration
+## 8. User Workflow and Navigation
 
-All environment defaults are pre-configured in `.env.example`:
+TimeSafe organizes its user experience into 5 focused primary views with an accessible modal for technical audits:
 
-```bash
-# Application Environment
-ENVIRONMENT="development"
-DEBUG=True
-
-# Database Connection (Default: local SQLite WAL database)
-DATABASE_URL="sqlite:///timesafe.db"
-
-# Data Storage Directories
-RAW_DATA_DIR="data/raw"
-QUARANTINE_DATA_DIR="data/quarantine"
-OUTPUT_DATA_DIR="data/output"
-
-# API Service Host & Port
-API_HOST="127.0.0.1"
-API_PORT=8000
-
-# Pipeline Configuration Defaults
-DEFAULT_FEATURE_VERSION="v1"
-DEFAULT_LABEL_VERSION="v1"
-BATCH_CHUNK_SIZE=1000
 ```
+[ Top Navbar ] ──> [ Home ] | [ Dashboard ] | [ My Datasets ] | [ Results ] | [ History ] ──> [ Advanced Details Modal ]
+```
+
+### 1. Home (`#/home`)
+The clean welcome page introducing the platform, highlighting core capabilities, and providing one-click launch cards:
+- **Configure Dataset**: Jump directly to the 3-step feature engineering wizard.
+- **Try Sample Dataset**: Pre-loads a balanced, multi-domain transactional dataset.
+- **View Dashboard**: Navigate to operational metrics and system activity.
+- **Audit Records**: Review the full source record history and quarantined items.
+
+### 2. Dashboard (`#/dashboard`)
+The operational telemetry console presenting:
+- **4 Key Performance Indicators**: Total Datasets, Accepted Records, Quarantined Records, and Feature Snapshots.
+- **Accepted vs Quarantined Quality Chart**: Doughnut chart showing clean data percentage and category breakdowns.
+- **Processing Activity Over Time**: Area chart displaying daily input volume without double-counting parent batch orchestrations.
+- **Recent Pipeline Executions**: Live feed of the latest runs with duration, row counts, and status badges.
+
+### 3. My Datasets (`#/datasets`)
+The guided 3-step feature extraction wizard:
+- **Step 1: Upload Data**: Upload any CSV or load sample data with instant file profiling (size, row count, detected columns).
+- **Step 2: Configure Features**: Map CSV columns to Entity ID, Event Time, Available At, Amount, and Category. Select the prediction cutoff timestamp $T$ and toggle desired lookback features.
+- **Step 3: Results & CSV Export**: Execute feature extraction and immediately view or download the resulting feature matrix.
+
+### 4. Feature Results (`#/results`)
+The feature inspection workspace:
+- View all published feature snapshots grouped by entity and cutoff timestamp.
+- Client-side search by entity ID.
+- One-click **"Download CSV"** streaming export for direct consumption by ML training pipelines.
+
+### 5. History (`#/history`)
+The unified audit and governance center containing two specialized tabs:
+- **Record History Tab**: Search, filter, and inspect every raw record ingested into the system. Includes inline **"Review & Fix"** workflow for quarantined records.
+- **Pipeline Runs Tab**: Audit execution runs, durations, input/accepted/rejected breakdown, and failure diagnostics.
+
+### 6. Advanced Details Modal
+Accessible anytime from the top navigation bar, offering:
+- **Live Mathematical Reconciliation**: Real-time equation balance check and referential integrity status.
+- **Quarantine Explorer**: Dedicated view of rejected records with diagnostic reason filtering.
+- **System Metrics**: Total database record counts and SQLite file size.
+- **Schema Data Dictionary**: Complete technical reference for source tables and target feature schemas.
 
 ---
 
-## 10. How to Use TimeSafe
+## 9. Record History and Data Traceability
 
-The application uses an intuitive 3-step wizard workflow:
+A major requirement for enterprise ML data engineering is data lineage and auditability. TimeSafe provides a persistent record ledger backed by the `source_record_history` table.
 
-```
-[ Step 1: Upload Data ] ──> [ Step 2: Configure Features ] ──> [ Step 3: Results & CSV Export ]
-```
+### 1. Permanent Preservation of Raw Records
+When transactional data enters the pipeline, the raw input is captured immutably in `source_record_history` before any validation or filtering occurs:
+- `raw_payload`: Complete unparsed JSON representation of the original row.
+- `first_seen_at`: UTC timestamp of original ingestion.
+- `source_file` and `source_row_number`: Exact provenance tracking back to the source file line.
+- **Immutability Guarantee**: Raw records are never deleted or modified, even after corrections are applied.
 
-### Step 1 — Upload Dataset
-- Select or drag-and-drop any timestamped transactional CSV (e-commerce, banking, logistics, subscriptions).
-- Alternatively, click **"Try Sample Dataset"** to load the pre-packaged domain-neutral sample.
-- View immediate preview: file size, row count, detected columns, and first 10 rows.
+### 2. Status Tracking Lifecycle
+Every record transitions through an explicit lifecycle:
+- `accepted`: Passed all validation checks and inserted into the clean operational store.
+- `rejected`: Failed one or more validation checks and routed to quarantine.
+- `corrected`: Successfully modified and re-admitted via the safe reprocessing workflow.
+- `reprocessed`: Validated and promoted into operational tables with an anti-leakage availability timestamp.
 
-### Step 2 — Configure Features & Cutoff
-- **Event ID**: Optional column identifying individual events (e.g. `transaction_id`, `event_id`, `shipment_id`).
-- **Entity ID**: Required column identifying the entity (e.g. `customer_id`, `account_id`, `user_id`, `vehicle_id`). Multiple events per entity are aggregated together.
-- **Event Timestamp**: The physical time the event occurred (UTC).
-- **Availability Timestamp**: When the event became available in the warehouse. If omitted, users can toggle "Assume available at event time" (displays an explicit audit warning).
-- **Amount & Type**: Numerical magnitude and categorical event type.
-- **Prediction Cutoff ($T$)**: The historical timestamp at which predictions are made.
-- **Feature Selection**: Toggle 7-day and 30-day activity counts, totals, averages, and recency.
+### 3. Search and Multi-Faceted Filtering
+The Record History interface allows data engineers to filter records across multiple dimensions:
+- **Full-Text Search**: Instant search across Record ID, Entity ID, and rejection reason.
+- **Dataset Filter**: Filter by source file (`transactions.csv`, `test_raw.csv`, etc.).
+- **Status Filter**: View `all`, `accepted`, `rejected`, or `corrected` records.
+- **Error Category Filter**: Isolate specific defect categories (`Missing Field`, `Negative Amount`, `Timeline Inconsistency`, `Invalid Timestamp`).
+- **Date Range Filter**: Constrain records by ingestion date range.
+- **CSV Audit Export**: Download the filtered record history as a CSV audit report.
 
-### Step 3 — Generate Results & Download
-- The engine executes point-in-time calculation across all entities.
-- Inspect the resulting feature snapshot table with instant client-side search and pagination.
-- Click **"Download CSV"** to export the feature matrix.
+### 4. Complete Audit Lifecycle View
+Clicking **"View Details"** on any record opens the comprehensive inspection modal displaying:
+- Complete record identifiers and lineage keys.
+- Original raw JSON payload.
+- Extracted and parsed event fields.
+- Specific validation error message and category.
+- Chronological event timeline (First Seen $\rightarrow$ Quarantined $\rightarrow$ Corrected $\rightarrow$ Operational Ingestion).
 
-### Minimal CSV Schema Example
-```csv
-event_id,entity_id,event_time,available_at,amount,event_type
-EVT_101,CUST_001,2026-05-10T14:30:00Z,2026-05-10T14:35:00Z,120.50,purchase
-EVT_102,CUST_001,2026-05-15T09:15:00Z,2026-05-15T09:20:00Z,45.00,purchase
-EVT_103,CUST_002,2026-05-18T18:00:00Z,2026-05-18T18:10:00Z,89.00,purchase
-EVT_104,CUST_001,2026-06-02T11:00:00Z,2026-06-02T11:05:00Z,300.00,purchase
-```
-If cutoff $T = \text{2026-05-20T00:00:00Z}$, `EVT_104` is automatically excluded because its event time is after $T$.
+### 5. Audit Integrity: Why Original Rejection Reasons Remain Visible
+Even after a rejected record is successfully corrected and reprocessed into the operational store, **its original rejection reason remains visible in the Record History view**.
+
+> **Audit Integrity Rationale**: In regulated financial and mission-critical ML environments, audit logs must preserve evidence of historical defects. A record that was corrected was still initially invalid; suppressing its initial failure would conceal data quality issues from compliance auditors and ML engineers evaluating pipeline stability. The status displays `corrected`, but the historical diagnostic remains permanently recorded.
 
 ---
 
-## 11. Point-in-Time Correctness
+## 10. Pipeline Processing History
+
+Every execution in TimeSafe—whether a single CSV upload, a validation run, an end-to-end batch pipeline, or a safe retry—is logged in the `pipeline_runs` table with unique telemetry.
+
+### 1. Run Attributes and Telemetry
+- `run_id`: Unique execution identifier (e.g., `run_20261114_110500_abc123`).
+- `run_type`: Type of operation (`upload`, `validation`, `ingest_customers`, `ingest_transactions`, `ingest_predictions`, `full_pipeline`, `reprocess_retry`).
+- `started_at` & `completed_at`: High-precision UTC execution timestamps.
+- `duration_seconds`: Total execution elapsed time.
+- `status`: Execution outcome (`success`, `warning`, `failed`).
+- **Row Accounting**: `input_rows`, `accepted_rows`, `rejected_rows`, `duplicate_rows`, and `features_generated`.
+
+### 2. Illustrative Pipeline Execution Log
+
+| Run ID | Operation Type | Status | Input Rows | Accepted | Quarantined | Duplicates | Features | Duration |
+|---|---|---|---|---|---|---|---|---|
+| `run_20261114_110516` | `full_pipeline` | `success` | 100 | 76 | 24 | 0 | 15 | 0.42s |
+| `run_20261114_110517` | `ingest_transactions` | `warning` | 100 | 76 | 24 | 0 | 0 | 0.18s |
+| `run_20261114_110518` | `compute_features` | `success` | 15 | 15 | 0 | 0 | 15 | 0.08s |
+| `run_20261114_113045` | `reprocess_retry` | `success` | 1 | 1 | 0 | 0 | 0 | 0.03s |
+
+### 3. Graceful Error Handling: Successful Runs with Quarantined Records
+In enterprise data engineering, encountering malformed records is expected. TimeSafe decouples **pipeline execution health** from **row-level data defects**:
+- When a batch contains 100 records and 24 have negative amounts or invalid timestamps, the pipeline isolates the 24 bad rows into quarantine and ingests the 76 clean rows.
+- The pipeline execution completes with status **`success`** (or `warning`), rather than crashing.
+- Only unexpected system exceptions (such as database connection loss or disk exhaustion) trigger an atomic transaction rollback and mark the run as **`failed`**.
+
+---
+
+## 11. Rejected Record Correction and Safe Retry
+
+Quarantined records should not be discarded permanently if they can be remediated. TimeSafe provides a safe, audited, 9-step correction and reprocessing workflow that prevents data leakage.
+
+### The 9-Step Safe Reprocessing Workflow
+
+```
+[ 1. Locate Reject ] ──> [ 2. Open Review & Fix ] ──> [ 3. Inspect Error & Raw JSON ]
+           │
+           ▼
+[ 4. Edit Fields ] ──> [ 5. Dry-Run Validation ] ──> [ 6. Review Feedback ]
+           │
+           ▼
+[ 7. Submit Fix ] ──> [ 8. Anti-Leakage Timestamp ] ──> [ 9. Insert to Clean Store ]
+```
+
+1. **Locate Defective Record**: Open the Record History tab or Quarantine Explorer and identify a row with status `rejected`.
+2. **Open Review & Fix**: Click the **"Review & Fix"** button to open the `CorrectionModal`.
+3. **Inspect Diagnostic Context**: Inspect the original raw payload, the originating file, the row number, and the exact error explanation.
+4. **Edit Invalid Fields**: Modify only the erroneous fields using the structured form (e.g., convert negative amount `-$50.00` to `+$50.00`, or adjust an invalid ISO timestamp).
+5. **Dry-Run Validation Check**: Click **"Validate (Dry Run)"**. The backend executes in-memory validation rules against the candidate payload without writing anything to disk.
+6. **Review Validation Feedback**: If errors remain, immediate field-level guidance is returned. If valid, a green checkmark confirms the payload is safe.
+7. **Submit Correction**: Click **"Save and Reprocess"**.
+8. **Traceability Transition**: The record status transitions from `rejected` to `corrected`, recording the modifier and correction reason in `record_corrections`.
+9. **Operational Promotion with Anti-Leakage Invariant**: The corrected row is inserted into the operational `transactions` table.
+
+### Mathematical Anti-Leakage Guarantee on Reprocessing
+When a corrected record is re-admitted to the database, its availability timestamp is recalculated using the anti-leakage rule:
+
+$$\text{effective\_available\_at} = \max(\text{available\_at}, \text{current\_utc\_time})$$
+
+```
+Timeline:
+Event Occurred (event_time):       2026-05-01
+Original Ingestion (quarantined): 2026-05-02
+Feature Snapshots Computed:        2026-05-10  (Historical cutoffs)
+Record Corrected by User:         2026-05-15  (current_utc_time)
+----------------------------------------------------------------------
+Result: effective_available_at = max(2026-05-02, 2026-05-15) = 2026-05-15
+```
+
+> **Why This Eliminates Leakage**: If the corrected record retained its original availability timestamp (`2026-05-02`), running feature extractions for cutoffs between May 2 and May 15 would retroactively produce different results than they did when models were trained on May 10. By setting $\text{effective\_available\_at} = \text{current\_utc\_time}$, the corrected data is visible **only** to feature computations evaluated after the correction occurred!
+
+---
+
+## 12. Mathematical Reconciliation and Observability
+
+To guarantee that no records are dropped or silently lost, TimeSafe enforces formal mathematical reconciliation across all ingestion streams.
+
+### The Core Row Accounting Equation
+Every ingestion execution must satisfy the conservation law:
+
+$$\text{Total Input Rows} = \text{New Valid Inserted} + \text{Duplicates Skipped (No-Op)} + \text{Quarantined Rejections}$$
+
+- **$\text{Total Input Rows}$**: Exact count of physical lines read from the source CSV.
+- **$\text{New Valid Inserted}$**: Records passing all validation checks and inserted into the clean operational table.
+- **$\text{Duplicates Skipped}$**: Records identical to existing database entries, treated as safe no-ops without insertion.
+- **$\text{Quarantined Rejections}$**: Malformed or conflicting records isolated into `rejected_records`.
+
+### System Integrity Checks
+In addition to row accounting, TimeSafe executes referential and structural integrity checks:
+1. **Referential Integrity**: Every transaction and prediction request must reference a valid entity in `customers`. Orphaned records are quarantined.
+2. **Feature Snapshot Uniqueness**: Composite uniqueness on `(customer_id, as_of_time, feature_version)` guarantees zero duplicate feature vectors.
+3. **Training Label Parity**: Feature vectors and target labels must maintain identical grain and entity counts.
+
+### Machine-Readable Validation Report
+The reconciliation engine exports an audit report to [`reports/validation_report.json`](file:///C:/CandidateWorkspace/timesafe-feature-pipeline/reports/validation_report.json):
+```json
+{
+  "generated_at": "2026-11-14T11:05:16.688334+00:00",
+  "overall_status": "PASSED",
+  "total_runs_evaluated": 10,
+  "integrity_checks": {
+    "orphaned_transactions": 0,
+    "orphaned_features": 0,
+    "duplicate_features": 0,
+    "referential_integrity_passed": true,
+    "uniqueness_passed": true
+  }
+}
+```
+*Current Operational Audit Status:* **`PASSED`** (100% of evaluated runs strictly balanced).
+
+---
+
+## 13. Point-in-Time Correctness Rules
 
 ### The Dual-Timestamp Rule
-A record is eligible for feature calculation if and only if:
+A transactional event $e$ is eligible for feature calculation at prediction cutoff timestamp $T$ if and only if:
+
 $$\text{Eligible}(e, T) \iff e.event\_time < T \quad \mathbf{AND} \quad e.available\_at \le T$$
 
 ### Boundary Invariants
-1. **Strictly Preceding**: $event\_time < T$. A transaction occurring exactly at $T$ is **excluded**.
+1. **Strictly Preceding**: $event\_time < T$. A transaction occurring exactly at $T$ is **excluded** (prevents predicting the present).
 2. **Availability Gate**: A transaction with $event\_time < T$ but $available\_at > T$ is **excluded** (late-arriving event not yet known at cutoff).
 3. **Exact 30-Day Window**: $[T - 30\text{ days}, T)$. An event occurring exactly at $T - 30\text{ days}$ is **included**.
 4. **Exact 7-Day Window**: $[T - 7\text{ days}, T)$. An event occurring exactly at $T - 7\text{ days}$ is **included**.
-5. **Entity Timeline**: If $T < customer.created\_at$, the entity did not exist; feature generation raises a validation rejection.
-6. **Watermark Invariant**: Labels for $[T, T + 7\text{ days})$ are computed only when $\max(available\_at) \ge T + 7\text{ days}$. If the window is incomplete, the label is omitted (never imputed as 0).
+5. **Entity Timeline Sanity**: If $T < customer.created\_at$, the entity did not exist at the cutoff; feature generation rejects the prediction request.
+6. **Watermark Label Invariant**: Target labels for $[T, T + 7\text{ days})$ are computed only when $\max(available\_at) \ge T + 7\text{ days}$. If the observation window is incomplete, the label is omitted (never imputed as 0), preventing false negatives.
 
 ---
 
-## 12. Feature Engineering Definitions
+## 14. Feature Engineering Definitions
 
 | Feature Name | Type | Lookback Window | Calculation Rule | Empty / Zero Convention |
 |---|---|---|---|---|
 | `event_count_7d` | `INTEGER` | $[T - 7\text{d}, T)$ | Count of eligible events | `0` |
 | `event_count_30d` | `INTEGER` | $[T - 30\text{d}, T)$ | Count of eligible events | `0` |
-| `total_amount_30d` | `NUMERIC(12, 2)`| $[T - 30\text{d}, T)$ | Sum of numerical amount for eligible events | `0.00` |
+| `total_amount_30d` | `NUMERIC(12, 2)`| $[T - 30\text{d}, T)$ | Sum of numerical magnitude for eligible events | `0.00` |
 | `avg_amount_30d` | `NUMERIC(12, 2)`| $[T - 30\text{d}, T)$ | Mean amount of eligible events | `0.00` |
 | `days_since_last_event` | `FLOAT` | Preceding $T$ | Elapsed days from most recent eligible event to $T$ | `NULL` |
 | `refund_count_30d` | `INTEGER` | $[T - 30\text{d}, T)$ | Count of eligible refund/chargeback events | `0` |
@@ -344,42 +558,57 @@ $$\text{Eligible}(e, T) \iff e.event\_time < T \quad \mathbf{AND} \quad e.availa
 
 ---
 
-## 13. Data Validation and Quarantine
+## 15. Data Validation and Quarantine Rules
 
-The validation engine validates records before analytical storage:
-- **Missing Required Fields**: Rejects rows missing entity ID, event time, or primary key.
-- **Non-Negative Amounts**: Rejects transaction amounts $< 0$.
-- **Temporal Sanity**: Rejects rows where $available\_at < event\_time$ (data arriving before it occurred).
-- **Referential Integrity**: Checks entity existence (when reference tables are provided).
-- **Duplicate Detection**: Identical records in the stream are treated as safe no-ops; conflicting records with identical primary keys but differing payloads are quarantined.
+The validation engine screens every record before admitting it to analytical storage:
 
-All quarantined rows are written to `rejected_records` with:
-- `source_file`: Originating file name
-- `source_row_number`: Line number in the source file
-- `rejection_reason`: Explicit diagnostic message
-- `raw_record`: Complete unparsed JSON payload
-- `run_id`: Associated pipeline execution run
+### Validation Error Catalog
+| Error Category | Rule Description | Action |
+|---|---|---|
+| `MISSING_FIELD` | Missing Entity ID, Event Time, or Primary Key | Quarantined to `rejected_records` |
+| `NEGATIVE_AMOUNT` | Transaction amount is negative ($< 0.00$) | Quarantined to `rejected_records` |
+| `INVALID_TIMESTAMP` | Timestamp is unparseable or has invalid timezone | Quarantined to `rejected_records` |
+| `TIMELINE_INCONSISTENCY` | $available\_at < event\_time$ (arrived before occurring) | Quarantined to `rejected_records` |
+| `ENTITY_PREDATES_CREATION`| Event timestamp predates entity `created_at` | Quarantined to `rejected_records` |
+| `UNKNOWN_ENTITY` | Foreign key references non-existent entity | Quarantined to `rejected_records` |
+| `DUPLICATE_IN_STREAM` | Identical primary key with conflicting payload | Quarantined to `rejected_records` |
+| `IDENTICAL_RECORD` | Exact duplicate of existing database record | Safe No-Op (skipped, counted in reconciliation) |
+
+### Quarantined Record Metadata
+All quarantined rows in `rejected_records` store:
+- `reject_id`: Unique identifier for the quarantined record.
+- `source_file`: Originating file name.
+- `source_row_number`: Exact line number in the source file.
+- `rejection_reason`: Diagnostic error message explaining the failure.
+- `raw_record`: Complete unparsed JSON payload for full evidence preservation.
+- `run_id`: Foreign key referencing the associated pipeline execution run.
 
 ---
 
-## 14. Idempotency and Failure Recovery
+## 16. Idempotency and Failure Recovery
 
-- **Safe Reruns**: Ingesting the same file multiple times inserts zero duplicate rows and preserves existing database state.
+- **Safe Re-runs**: Ingesting the same CSV stream multiple times inserts zero duplicate rows and preserves existing database state.
 - **Snapshot Uniqueness**: Feature snapshots enforce a database unique constraint on `(customer_id, as_of_time, feature_version)`. Re-running feature extraction updates existing snapshots cleanly.
-- **Partial Failure Rollback**: Database transactions are committed in atomic batches. If an unhandled error occurs mid-stream, the active transaction rolls back, marks the `pipeline_runs` row as `failed`, and logs the error trace. Subsequent reruns restart cleanly.
+- **Atomic Batch Rollbacks**: Database operations are committed in atomic batches. If an unhandled failure occurs mid-stream, the active transaction rolls back, marks the `pipeline_runs` row as `failed`, and logs the error trace. Subsequent reruns restart cleanly.
 
 ---
 
-## 15. Automated Testing
+## 17. Automated Testing & Verification Evidence
 
-The automated test suite contains **50 tests** covering unit logic, boundary conditions, anti-leakage invariants, idempotency, and API endpoints.
+The automated test suite contains **60 tests** covering unit logic, boundary conditions, anti-leakage invariants, idempotency, API endpoints, record history, and safe reprocessing.
 
 ```powershell
 python -m pytest backend/tests -v
 ```
 
-### Verified Test Suite Results
+### Verified Test Suite Execution Output
 ```
+============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-9.2.0, pluggy-1.7.0
+rootdir: C:\CandidateWorkspace\timesafe-feature-pipeline
+configfile: pyproject.toml
+collected 60 items
+
 backend/tests/test_api.py ............. [14 tests PASSED]
 backend/tests/test_features.py ....      [ 4 tests PASSED]
 backend/tests/test_generic_features.py ....... [ 7 tests PASSED]
@@ -387,16 +616,46 @@ backend/tests/test_idempotency.py ..     [ 2 tests PASSED]
 backend/tests/test_ingestion.py .......  [ 6 tests PASSED]
 backend/tests/test_leakage.py .....      [ 5 tests PASSED]
 backend/tests/test_recovery.py ..        [ 2 tests PASSED]
+backend/tests/test_reprocessing.py .......... [10 tests PASSED]
 backend/tests/test_validation.py .......... [10 tests PASSED]
 
-======================= 50 passed, 3 warnings in 3.97s ========================
+======================= 60 passed, 3 warnings in 2.39s ========================
+```
+
+### Test Suite Breakdown
+
+| Test Suite | Tests | Primary Scope Tested |
+|---|---|---|
+| `test_api.py` | 14 | Health, preview, metrics, pipeline execution, rejects, CSV export |
+| `test_features.py` | 4 | Exact boundary inclusion, out-of-order invariance, train/serve parity |
+| `test_generic_features.py` | 7 | Domain-neutral mapping (banking, retail, logistics), multi-event aggregation |
+| `test_idempotency.py` | 2 | Repeated CSV ingestion safety, idempotent feature snapshot publishing |
+| `test_ingestion.py` | 6 | Deterministic data generator, empty CSVs, schema validation, chunking |
+| `test_leakage.py` | 5 | Future event exclusion, late availability exclusion, watermark label gating |
+| `test_recovery.py` | 2 | Row accounting conservation equation, partial failure transaction rollback |
+| `test_reprocessing.py` | 10 | Dashboard KPIs, record history filters, dry-run validation, anti-leakage retry |
+| `test_validation.py` | 10 | Schema validation, non-negative amounts, temporal sanity, duplicate detection |
+| **Total** | **60** | **100% Passing in ~2.4 seconds** |
+
+### Frontend Build Verification
+```powershell
+cd frontend
+npm run build
+```
+Output:
+```
+✓ 2163 modules transformed.
+dist/index.html                   0.81 kB │ gzip:   0.47 kB
+dist/assets/index-D5yj4kfH.css   39.77 kB │ gzip:   7.11 kB
+dist/assets/index-aq8R5H_1.js   766.70 kB │ gzip: 207.47 kB
+✓ built in 5.09s
 ```
 
 ---
 
-## 16. Performance Benchmarking
+## 18. Performance Benchmarking
 
-Run the 100,000-row performance benchmark:
+Run the 100,000-row performance stress test:
 ```powershell
 python scripts/benchmark.py --rows 100000 --customers 500 --predictions 100
 ```
@@ -436,60 +695,48 @@ Reconciliation Balance:         99998 == 70614 + 0 + 29384 (MATCH)
 ============================================================
 ```
 
-### Key Optimizations Implemented
-1. **SQLite PRAGMA Tuning**: Enabled Write-Ahead Logging (`PRAGMA journal_mode = WAL`) and reduced sync overhead (`PRAGMA synchronous = NORMAL`).
-2. **Composite Lookahead Indexing**: Index `ix_tx_cust_event_avail (customer_id, event_time, available_at)` narrows disk range scans directly to valid cutoff intervals.
-3. **In-Memory Signature Cache**: Signature set comparisons avoid round-trip queries for duplicate detection.
+### Key Performance Optimizations
+1. **SQLite PRAGMA Tuning**: Enabled Write-Ahead Logging (`PRAGMA journal_mode = WAL`) and reduced synchronous disk overhead (`PRAGMA synchronous = NORMAL`).
+2. **Composite B-Tree Indexes**: Index `ix_tx_cust_event_avail (customer_id, event_time, available_at)` narrows disk range scans directly to valid cutoff intervals.
+3. **In-Memory Signature Cache**: Signature set comparisons avoid redundant SQL queries during duplicate detection.
 
 ---
 
-## 17. Reconciliation and Observability
+## 19. API Reference & Swagger Documentation
 
-Every pipeline execution verifies the mathematical row accounting equation:
-$$\text{Input Rows} = \text{Valid Inserted} + \text{Duplicates Skipped (No-Op)} + \text{Quarantined Rejections}$$
+TimeSafe provides a comprehensive REST API documented with interactive Swagger UI at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
 
-### System Audit Verification
-Executing full system reconciliation generates [`reports/validation_report.json`](file:///C:/CandidateWorkspace/timesafe-feature-pipeline/reports/validation_report.json):
-```json
-{
-  "generated_at": "2026-11-14T11:05:16.688334+00:00",
-  "overall_status": "PASSED",
-  "total_runs_evaluated": 10,
-  "integrity_checks": {
-    "orphaned_transactions": 0,
-    "orphaned_features": 0,
-    "duplicate_features": 0,
-    "referential_integrity_passed": true,
-    "uniqueness_passed": true
-  }
-}
-```
-*Current Operational Audit Status:* **`PASSED`** (100% of evaluated runs strictly balanced).
-
----
-
-## 18. API Documentation
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/health` | Service health status and database connectivity |
-| `GET` | `/metrics` | Real-time system metrics (counts, reconciliation status) |
-| `POST` | `/upload-preview` | Upload CSV, inspect columns, row counts, and auto-mapping |
-| `POST` | `/features/generate-generic` | Compute point-in-time features on uploaded dataset |
-| `GET` | `/features` | Query stored feature snapshots with version and limit filters |
-| `POST` | `/features/preview` | Real-time point-in-time feature preview for single entity |
-| `GET` | `/export/features` | Stream generated feature snapshots as CSV download |
-| `POST` | `/ingest` | Ingest raw CSV files (customers, transactions, prediction requests) |
-| `POST` | `/pipeline/run` | Trigger end-to-end batch processing pipeline |
-| `GET` | `/pipeline/runs` | List operational execution telemetry and run history |
-| `GET` | `/rejects` | Query quarantined invalid records with filter options |
-| `GET` | `/reports/reconciliation` | Fetch latest formal reconciliation audit report |
-
-Interactive Swagger documentation is available at: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
+| Tag | Method | Endpoint | Description |
+|---|---|---|---|
+| **System** | `GET` | `/health` | Service health status and database connectivity |
+| **System** | `GET` | `/metrics` | Real-time system counts and reconciliation status |
+| **Ingestion** | `POST` | `/upload-preview` | Upload CSV, inspect columns, row count, and auto-mapping |
+| **Ingestion** | `POST` | `/ingest` | Ingest CSV files (customers, transactions, predictions) |
+| **Ingestion** | `POST` | `/generate-data` | Trigger synthetic data generator with seed and row parameters |
+| **Features** | `POST` | `/features/generate-generic` | Compute point-in-time features on uploaded dataset |
+| **Features** | `GET` | `/features` | Query stored feature snapshots with version and limit filters |
+| **Features** | `POST` | `/features/preview` | Real-time point-in-time feature preview for single entity |
+| **Features** | `GET` | `/export/features` | Stream generated feature snapshots as CSV download |
+| **Pipeline** | `POST` | `/pipeline/run` | Trigger end-to-end batch processing pipeline |
+| **Pipeline** | `GET` | `/pipeline/runs` | List operational execution telemetry and run history |
+| **Pipeline** | `GET` | `/pipeline/runs/{run_id}` | Fetch detailed row accounting and errors for specific run |
+| **Reports** | `GET` | `/rejects` | Query quarantined invalid records with filter options |
+| **Reports** | `GET` | `/reports/reconciliation` | Fetch latest formal reconciliation audit report |
+| **Dashboard** | `GET` | `/dashboard/summary` | Top-level operational metrics and status distribution |
+| **Dashboard** | `GET` | `/dashboard/activity` | Activity timelines without double-counting parent batches |
+| **Dashboard** | `GET` | `/dashboard/data-quality` | Data quality distributions and error category breakdowns |
+| **Dashboard** | `GET` | `/dashboard/recent-runs` | Latest pipeline execution runs with row accounting |
+| **History** | `GET` | `/history/records` | Paginated and filtered source record history audit log |
+| **History** | `GET` | `/history/records/{id}` | Full audit detail, original payload, and lifecycle events |
+| **History** | `GET` | `/history/runs` | User-friendly execution run history with status filters |
+| **History** | `GET` | `/history/export` | Export filtered record history as downloadable CSV |
+| **Reprocess** | `POST` | `/rejects/{id}/validate` | Dry-run in-memory validation of candidate corrected payload |
+| **Reprocess** | `POST` | `/rejects/{id}/corrections`| Save an editable correction draft version |
+| **Reprocess** | `POST` | `/rejects/{id}/reprocess` | Safely reprocess rejected record with anti-leakage timestamp |
 
 ---
 
-## 19. Database Design
+## 20. Database Design & Schema
 
 ```mermaid
 erDiagram
@@ -498,6 +745,8 @@ erDiagram
     customers ||--o{ feature_snapshots : "owns"
     customers ||--o{ training_labels : "evaluates"
     pipeline_runs ||--o{ rejected_records : "quarantines"
+    rejected_records ||--o{ record_corrections : "tracks"
+    source_record_history ||--o{ rejected_records : "lineage"
 
     customers {
         string customer_id PK
@@ -558,36 +807,58 @@ erDiagram
         string raw_record
         string rejection_reason
     }
+
+    source_record_history {
+        string history_id PK
+        string record_id
+        string entity_id
+        string source_file
+        int source_row_number
+        string processing_status
+        string raw_payload
+        datetime first_seen_at
+        datetime last_processed_at
+    }
+
+    record_corrections {
+        string correction_id PK
+        string reject_id FK
+        string corrected_payload
+        string correction_reason
+        string resolved_by
+        datetime corrected_at
+    }
 ```
 
 ---
 
-## 20. Design Decisions and Trade-offs
+## 21. Design Decisions and Trade-offs
 
-1. **Why SQLite over PostgreSQL for Default Local Execution**:
-   - *Decision*: SQLite embedded with WAL mode.
-   - *Rationale*: Eliminates external service setup, Docker requirements, and credentials for hackathon evaluation while delivering >5,600 rows/sec throughput.
-   - *Trade-off*: Limited concurrent write concurrency compared to PostgreSQL connection pools.
+1. **Why SQLite (WAL Mode) over PostgreSQL for Local Execution**:
+   - *Decision*: Embedded SQLite configured with `PRAGMA journal_mode = WAL` and `PRAGMA synchronous = NORMAL`.
+   - *Rationale*: Eliminates external Docker daemon requirements, cloud dependencies, and credential configuration for evaluator execution, while achieving >5,600 rows/second throughput.
+   - *Trade-off*: SQLite limits concurrent write connections compared to enterprise database pools.
 2. **Why Pure Python/Pandas over Spark/Flink**:
    - *Decision*: Single-node streaming and vectorization.
-   - *Rationale*: Sub-second latency on datasets up to hundreds of thousands of rows without JVM or cluster overhead.
-3. **Explicit Quarantine over Silent Drop**:
-   - *Decision*: Quarantine all invalid, duplicate, or conflicting rows into `rejected_records`.
-   - *Rationale*: Ensures full audit accountability and data provenance.
+   - *Rationale*: Sub-second latency on datasets up to hundreds of thousands of rows without JVM initialization overhead or distributed cluster coordination.
+3. **Explicit Quarantine over Silent Discard**:
+   - *Decision*: Isolate all defective or duplicate rows into `rejected_records` and `source_record_history` with line numbers and original raw payloads.
+   - *Rationale*: Guarantees data provenance, compliance traceability, and reproducible debugging.
 4. **Unified Calculation Engine**:
-   - *Decision*: Shared `compute_features()` for batch and inference.
+   - *Decision*: Single `compute_features()` function used for both batch feature matrix generation and real-time inference previews.
    - *Rationale*: Guarantees mathematical parity and eliminates train/serve drift.
+5. **Anti-Leakage Reprocessing Invariant**:
+   - *Decision*: Recalculate $\text{effective\_available\_at} = \max(\text{available\_at}, \text{current\_time})$ on record re-admission.
+   - *Rationale*: Ensures that corrected data cannot retroactively leak into historical feature snapshots generated prior to the correction date.
 
 ---
 
-## 21. Future Improvements
+## 22. Future Improvements & License
 
-- **PostgreSQL / Cloud Data Warehouse Connector**: Seamless SQLAlchemy dialect migration to PostgreSQL or Snowflake for petabyte-scale datasets.
-- **Asynchronous Task Queue**: Celery/Redis integration for background ingestion of multi-gigabyte CSV streams.
-- **Custom Expression Feature Builder**: UI interface allowing users to define custom feature aggregation formulas beyond standard counts and sums.
+- **PostgreSQL / Snowflake / BigQuery Connectors**: SQLAlchemy dialect expansion to support distributed cloud data warehouses for petabyte-scale event streams.
+- **Asynchronous Task Workers**: Celery or Redis Queue workers for distributed processing of multi-gigabyte CSV uploads.
+- **Custom Expression Feature Builder**: Dynamic feature formula builder in the React UI allowing custom mathematical transformations beyond standard sums and averages.
 
 ---
 
-## 22. Contributing & License
-
-This project was developed as a hackathon engineering submission. Licensing has not been specified.
+*This project was developed for the YottaFlex AI Data Forward Deployed Engineer hackathon assignment.*

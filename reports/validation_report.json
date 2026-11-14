@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-11-14T13:09:24.766377+00:00",
+  "generated_at": "2026-11-14T13:26:09.471080+00:00",
   "overall_status": "PASSED",
   "total_runs_evaluated": 10,
   "counts": {
-    "customers": 27,
-    "transactions": 78,
+    "customers": 29,
+    "transactions": 80,
     "prediction_requests": 15,
     "feature_snapshots": 15,
     "training_labels": 15,
-    "rejected_records": 396,
-    "pipeline_runs": 106
+    "rejected_records": 432,
+    "pipeline_runs": 118
   },
   "integrity_checks": {
     "orphaned_transactions": 0,
@@ -20,7 +20,7 @@
   },
   "run_audits": [
     {
-      "run_id": "RUN_20261114_130924_3d5c04",
+      "run_id": "RUN_20261114_132609_322b80",
       "run_type": "ingest_prediction_requests",
       "status": "success",
       "input_rows": 6,
@@ -31,7 +31,7 @@
       "reconciliation_equation": "6 == 5 + 1"
     },
     {
-      "run_id": "RUN_20261114_130924_1f26ab",
+      "run_id": "RUN_20261114_132609_59fad6",
       "run_type": "ingest_transactions",
       "status": "success",
       "input_rows": 23,
@@ -42,7 +42,7 @@
       "reconciliation_equation": "23 == 7 + 16"
     },
     {
-      "run_id": "RUN_20261114_130924_876fe0",
+      "run_id": "RUN_20261114_132609_4f769d",
       "run_type": "ingest_customers",
       "status": "success",
       "input_rows": 10,
@@ -53,7 +53,7 @@
       "reconciliation_equation": "10 == 10 + 0"
     },
     {
-      "run_id": "RUN_FULL_20261114_130924_d07301",
+      "run_id": "RUN_FULL_20261114_132609_6f2e21",
       "run_type": "full_pipeline",
       "status": "success",
       "input_rows": 39,
@@ -64,7 +64,7 @@
       "reconciliation_equation": "39 == 22 + 17"
     },
     {
-      "run_id": "RUN_REPROC_3eb7717dda",
+      "run_id": "RUN_REPROC_8da000f92e",
       "run_type": "reprocess_retry",
       "status": "success",
       "input_rows": 1,
@@ -75,7 +75,7 @@
       "reconciliation_equation": "1 == 1 + 0"
     },
     {
-      "run_id": "RUN_1f8c89f7",
+      "run_id": "RUN_f13cfe37",
       "run_type": "ingest_transactions",
       "status": "success",
       "input_rows": 1,
@@ -86,7 +86,7 @@
       "reconciliation_equation": "1 == 0 + 1"
     },
     {
-      "run_id": "RUN_20261114_130855_e2b386",
+      "run_id": "RUN_20261114_131517_19b8a6",
       "run_type": "ingest_prediction_requests",
       "status": "success",
       "input_rows": 6,
@@ -97,7 +97,7 @@
       "reconciliation_equation": "6 == 5 + 1"
     },
     {
-      "run_id": "RUN_20261114_130855_7c1979",
+      "run_id": "RUN_20261114_131517_e32530",
       "run_type": "ingest_transactions",
       "status": "success",
       "input_rows": 23,
@@ -108,7 +108,7 @@
       "reconciliation_equation": "23 == 7 + 16"
     },
     {
-      "run_id": "RUN_20261114_130855_7bfea3",
+      "run_id": "RUN_20261114_131517_b5ec24",
       "run_type": "ingest_customers",
       "status": "success",
       "input_rows": 10,
@@ -119,7 +119,7 @@
       "reconciliation_equation": "10 == 10 + 0"
     },
     {
-      "run_id": "RUN_FULL_20261114_130855_e51a6b",
+      "run_id": "RUN_FULL_20261114_131517_90f18d",
       "run_type": "full_pipeline",
       "status": "success",
       "input_rows": 39,
