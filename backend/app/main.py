@@ -9,3 +9,4 @@ if PROJECT_ROOT not in sys.path:
 from backend.main import app
 
 __all__ = ["app"]
+
