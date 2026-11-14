@@ -12,12 +12,15 @@ offline training dataset generation and online/batch inference.
 """
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+import logging
 from typing import Dict, Any, List, Optional, Union
 import pandas as pd
 from sqlalchemy.orm import Session
 from sqlalchemy import select, and_
 
 from database.models import Transaction, FeatureSnapshot, Customer, utc_now
+
+logger = logging.getLogger("timesafe.features")
 
 
 def compute_features(

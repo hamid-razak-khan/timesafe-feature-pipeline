@@ -23,15 +23,21 @@ wheels/
 .pytest_cache/
 .coverage
 htmlcov/
+*.log
 
 # Environments
 .env
+.env.local
+.env.*.local
 .venv
 venv/
 ENV/
+!*.env.example
+!frontend/.env.example
 
 # Database
 *.db
+*.sqlite
 *.sqlite3
 *.db-journal
 *.db-wal
@@ -40,6 +46,7 @@ ENV/
 # Frontend
 frontend/node_modules/
 frontend/dist/
+frontend/build/
 frontend/.vite/
 
 # IDE / Editor
@@ -48,7 +55,7 @@ frontend/.vite/
 *.swp
 *.swo
 
-# OS
+# Operating System
 Thumbs.db
 Desktop.ini
 .DS_Store
@@ -60,4 +67,3 @@ data/raw/wizard_*.csv
 !data/raw/.gitkeep
 !data/quarantine/.gitkeep
 !data/output/.gitkeep
-
