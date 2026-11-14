@@ -137,3 +137,4 @@ def api_get_rejected_records(
 
     records = query.order_by(RejectedRecord.rejected_at.desc()).limit(limit).all()
     return [r.to_dict() for r in records]
+

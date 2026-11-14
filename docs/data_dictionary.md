@@ -153,3 +153,4 @@ Quarantine store maintaining full lineage and raw payloads of invalid records.
 | `raw_record` | `TEXT` | No | No | — | Exact raw JSON string representation of the source line. |
 | `rejection_reason`| `VARCHAR(255)` | No | No | — | Machine-readable rejection code and explanation. |
 | `rejected_at` | `TIMESTAMP WITH TIME ZONE` | No | No | — | Quarantine timestamp in UTC. |
+

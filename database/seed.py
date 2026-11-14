@@ -34,3 +34,4 @@ def seed(reset: bool = False, raw_dir: str = "data/raw"):
 if __name__ == "__main__":
     reset_flag = "--reset" in sys.argv
     seed(reset=reset_flag)
+

@@ -131,3 +131,4 @@ class LabelGenerationService:
             results.append(res)
         self.session.commit()
         return results
+

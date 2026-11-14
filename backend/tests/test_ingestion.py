@@ -202,3 +202,4 @@ def test_ingest_transactions_idempotency_noop_and_conflicts(populated_test_db):
     for p in (batch1_path, batch_conflict_path):
         if os.path.exists(p):
             os.remove(p)
+

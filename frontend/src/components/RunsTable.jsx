@@ -92,3 +92,4 @@ export default function RunsTable({ runs = [], isLoading = false }) {
     </div>
   );
 }
+

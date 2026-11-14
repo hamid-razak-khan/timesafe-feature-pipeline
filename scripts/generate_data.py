@@ -360,3 +360,4 @@ if __name__ == "__main__":
     print("File SHA256 fingerprints:")
     for k, v in result["hashes"].items():
         print(f"  - {k}: {v}")
+

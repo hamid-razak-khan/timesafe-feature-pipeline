@@ -345,3 +345,4 @@ The SQLAlchemy models in `database/models.py` and DDL in `database/schema.sql` a
    git push -u origin main
    ```
 3. Verify all secrets, `.db` files, and `node_modules` remain untracked per `.gitignore`.
+

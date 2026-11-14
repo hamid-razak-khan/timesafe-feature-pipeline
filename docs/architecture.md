@@ -108,3 +108,4 @@ $$\text{Eligible}(tx, T) \iff tx.event\_time < T \quad \mathbf{AND} \quad tx.ava
    ```
 2. The schema definition in `database/schema.sql` and `database/models.py` uses portable ANSI SQL and standard SQLAlchemy types (`TIMESTAMP WITH TIME ZONE`, `NUMERIC(12, 2)`, `VARCHAR`, foreign keys, check constraints).
 3. No dialect-specific hacks are used. Migrating requires running `database/seed.py --reset` with the PostgreSQL URL set.
+

@@ -129,3 +129,4 @@ export default function QualityChart({ runs = [], rejects = [] }) {
     </div>
   );
 }
+

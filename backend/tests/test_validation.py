@@ -150,3 +150,4 @@ def test_validate_transaction_row_duplicate_in_file():
     res = ValidationService.validate_transaction_row(row, known_customers, seen_tx_ids, "test.csv")
     assert res.is_valid is False
     assert "DUPLICATE_TRANSACTION_ID_IN_FILE" in res.rejection_reason
+

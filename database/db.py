@@ -103,3 +103,4 @@ def BaseSession() -> Session:
     """Raw session provider for dependency injection (e.g. FastAPI get_db)."""
     factory = get_session_factory()
     return factory()
+

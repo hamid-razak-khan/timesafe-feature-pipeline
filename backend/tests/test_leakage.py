@@ -147,3 +147,4 @@ def test_label_generation_when_window_complete(populated_test_db):
 
     assert res["is_observable"] is True
     assert res["label_purchase_next_7d"] == 1
+

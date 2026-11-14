@@ -12,3 +12,4 @@ api_router.include_router(features_router, tags=["Features & Preview"])
 api_router.include_router(reports_router, tags=["Reports & Observability"])
 
 __all__ = ["api_router"]
+

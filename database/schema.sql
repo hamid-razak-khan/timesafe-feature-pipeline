@@ -103,3 +103,4 @@ CREATE TABLE IF NOT EXISTS rejected_records (
 );
 
 CREATE INDEX IF NOT EXISTS ix_rejected_records_run ON rejected_records(run_id);
+

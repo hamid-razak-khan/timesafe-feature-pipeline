@@ -94,3 +94,4 @@ def api_get_pipeline_run(
             detail=f"Pipeline run '{run_id}' not found.",
         )
     return run.to_dict()
+

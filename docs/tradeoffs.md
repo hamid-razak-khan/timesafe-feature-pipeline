@@ -41,3 +41,4 @@ This document records the architectural decisions, trade-offs, and rationale ado
 1. **Concurrency**: SQLite allows multiple concurrent readers but serializes writers. In high-concurrency production deployments, migrating to PostgreSQL removes writer serialization.
 2. **Streaming Ingestion**: The current pipeline is optimized for micro-batch and batch CSV/API streams. Real-time streaming would incorporate an append-only event log (e.g., Kafka or AWS Kinesis).
 3. **Feature Versioning Drift**: When feature logic changes, version strings (`v1`, `v2`) allow co-existence of multiple schemas in the same target table without dropping historical data.
+

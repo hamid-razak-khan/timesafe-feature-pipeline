@@ -75,3 +75,4 @@ export default function Sidebar({ activePage, setActivePage, healthStatus }) {
     </aside>
   );
 }
+

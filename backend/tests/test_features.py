@@ -143,3 +143,4 @@ def test_feature_generation_rejects_cutoff_predating_customer(populated_test_db)
             as_of_time=datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
             publish=False,
         )
+

@@ -1,4 +1,12 @@
 """FastAPI Application Entrypoint for TimeSafe Feature Pipeline."""
+import os
+import sys
+
+# Ensure project root is in sys.path regardless of execution directory
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.config import settings
@@ -45,3 +53,4 @@ def root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("backend.main:app", host="127.0.0.1", port=8000, reload=True)
+

@@ -117,3 +117,4 @@ export default function FeatureTable({ features = [], isLoading = false, onRefre
     </div>
   );
 }
+
