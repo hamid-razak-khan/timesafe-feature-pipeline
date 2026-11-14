@@ -144,3 +144,62 @@ def test_feature_generation_rejects_cutoff_predating_customer(populated_test_db)
             publish=False,
         )
 
+
+def test_historical_backfill_preserves_availability_semantics(populated_test_db):
+    """
+    Historical backfills must preserve original historical availability timestamps.
+    When backfilling past events, intermediate historical cutoffs must reflect only
+    what was available as of that specific historical cutoff T, even though the data was
+    loaded into the system during a subsequent backfill execution.
+    """
+    session, engine, _ = populated_test_db
+    customer_id = "CUST_0001"
+
+    t_march = datetime(2026, 3, 15, 0, 0, 0, tzinfo=timezone.utc)
+    t_april = datetime(2026, 4, 1, 0, 0, 0, tzinfo=timezone.utc)
+
+    # Ingest historical backfill records with explicit historical availability
+    # Event 1: Occurred March 1, Available March 1 -> Available at both t_march and t_april
+    tx_early = Transaction(
+        transaction_id="TX_BACKFILL_EARLY",
+        customer_id=customer_id,
+        event_time=datetime(2026, 3, 1, 10, 0, 0, tzinfo=timezone.utc),
+        available_at=datetime(2026, 3, 1, 10, 15, 0, tzinfo=timezone.utc),
+        amount=100.00,
+        transaction_type="purchase",
+        source_file="backfill_batch.csv",
+    )
+
+    # Event 2: Occurred March 10, but Available only March 20 (Delayed warehouse availability)
+    # -> Must be EXCLUDED at t_march (since available_at March 20 > t_march March 15)
+    # -> Must be INCLUDED at t_april (since available_at March 20 <= t_april April 1)
+    tx_delayed = Transaction(
+        transaction_id="TX_BACKFILL_DELAYED",
+        customer_id=customer_id,
+        event_time=datetime(2026, 3, 10, 14, 0, 0, tzinfo=timezone.utc),
+        available_at=datetime(2026, 3, 20, 18, 0, 0, tzinfo=timezone.utc),
+        amount=250.00,
+        transaction_type="purchase",
+        source_file="backfill_batch.csv",
+    )
+
+    session.add_all([tx_early, tx_delayed])
+    session.commit()
+
+    service = FeatureEngineeringService(session)
+
+    # Evaluate at t_march (March 15):
+    # Event 2 was NOT available on March 15 -> Excluded! Only Event 1 is eligible.
+    feat_march = service.generate_features_for_request(customer_id, t_march, publish=False)
+    assert feat_march["txn_count_30d"] == 1
+    assert feat_march["total_purchase_amount_30d"] == 100.0
+
+    # Evaluate at t_april (April 1):
+    # Both Event 1 and Event 2 were available by April 1.
+    # Lookback window for 30d at April 1 is [March 2, April 1).
+    # Event 1 (March 1) is outside the 30d window; Event 2 (March 10) is inside!
+    feat_april = service.generate_features_for_request(customer_id, t_april, publish=False)
+    assert feat_april["txn_count_30d"] == 1
+    assert feat_april["total_purchase_amount_30d"] == 250.0
+    assert feat_april["days_since_last_txn"] is not None
+

@@ -37,35 +37,93 @@ def get_db():
 
 
 # 1. Dashboard Executive Summary & Sub-APIs
-@router.get("/dashboard/summary", response_model=DashboardSummaryResponse)
-def api_get_dashboard_summary(db: Session = Depends(get_db)):
-    """Retrieve top-level operational metrics, distributions, and recent activity."""
+@router.get("/dashboard/filter-options")
+def api_get_dashboard_filter_options(db: Session = Depends(get_db)):
+    """Retrieve available dataset options, counts, and filter presets."""
     service = HistoryService(db)
-    return service.get_dashboard_summary()
+    return service.get_dashboard_filter_options()
+
+
+@router.get("/dashboard/summary", response_model=DashboardSummaryResponse)
+def api_get_dashboard_summary(
+    source_file: Optional[str] = Query(None, description="Filter by source file / dataset"),
+    date_preset: Optional[str] = Query(None, description="Preset date range: all, today, 7d, 30d, custom"),
+    start_date: Optional[str] = Query(None, description="Start date (ISO or YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="End date (ISO or YYYY-MM-DD)"),
+    status: Optional[str] = Query("all", description="Run status filter: all, completed, warning, failed"),
+    db: Session = Depends(get_db),
+):
+    """Retrieve top-level operational metrics, distributions, and recent activity with filter support."""
+    service = HistoryService(db)
+    return service.get_dashboard_summary(
+        source_file=source_file,
+        date_preset=date_preset,
+        start_date=start_date,
+        end_date=end_date,
+        status_filter=status,
+    )
 
 
 @router.get("/dashboard/activity", response_model=DashboardActivityResponse)
-def api_get_dashboard_activity(db: Session = Depends(get_db)):
+def api_get_dashboard_activity(
+    source_file: Optional[str] = Query(None, description="Filter by source file / dataset"),
+    date_preset: Optional[str] = Query(None, description="Preset date range: all, today, 7d, 30d, custom"),
+    start_date: Optional[str] = Query(None, description="Start date (ISO or YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="End date (ISO or YYYY-MM-DD)"),
+    status: Optional[str] = Query("all", description="Run status filter: all, completed, warning, failed"),
+    granularity: Optional[str] = Query("auto", description="Time aggregation granularity: auto, daily, hourly"),
+    db: Session = Depends(get_db),
+):
     """Retrieve detailed activity timelines and per-run breakdown without double counting."""
     service = HistoryService(db)
-    return service.get_dashboard_activity()
+    return service.get_dashboard_activity(
+        source_file=source_file,
+        date_preset=date_preset,
+        start_date=start_date,
+        end_date=end_date,
+        status_filter=status,
+        granularity=granularity or "auto",
+    )
 
 
 @router.get("/dashboard/data-quality", response_model=DashboardDataQualityResponse)
-def api_get_dashboard_data_quality(db: Session = Depends(get_db)):
-    """Retrieve detailed data quality distributions and category breakdowns."""
+def api_get_dashboard_data_quality(
+    source_file: Optional[str] = Query(None, description="Filter by source file / dataset"),
+    date_preset: Optional[str] = Query(None, description="Preset date range: all, today, 7d, 30d, custom"),
+    start_date: Optional[str] = Query(None, description="Start date (ISO or YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="End date (ISO or YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+):
+    """Retrieve detailed data quality distributions and category breakdowns with filter support."""
     service = HistoryService(db)
-    return service.get_dashboard_data_quality()
+    return service.get_dashboard_data_quality(
+        source_file=source_file,
+        date_preset=date_preset,
+        start_date=start_date,
+        end_date=end_date,
+    )
 
 
 @router.get("/dashboard/recent-runs", response_model=DashboardRecentRunsResponse)
 def api_get_dashboard_recent_runs(
     limit: int = Query(10, ge=1, le=50),
+    source_file: Optional[str] = Query(None, description="Filter by source file / dataset"),
+    date_preset: Optional[str] = Query(None, description="Preset date range: all, today, 7d, 30d, custom"),
+    start_date: Optional[str] = Query(None, description="Start date (ISO or YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="End date (ISO or YYYY-MM-DD)"),
+    status: Optional[str] = Query("all", description="Run status filter: all, completed, warning, failed"),
     db: Session = Depends(get_db),
 ):
-    """Fetch latest pipeline execution runs with full row accounting."""
+    """Fetch latest pipeline execution runs with full row accounting and filter support."""
     service = HistoryService(db)
-    return service.get_dashboard_recent_runs(limit=limit)
+    return service.get_dashboard_recent_runs(
+        limit=limit,
+        source_file=source_file,
+        date_preset=date_preset,
+        start_date=start_date,
+        end_date=end_date,
+        status_filter=status,
+    )
 
 
 # 2. Record History

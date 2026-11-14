@@ -120,6 +120,55 @@ class RejectedRecordItem(BaseModel):
     resolution_status: Optional[str] = "unresolved"
     resolved_at: Optional[str] = None
     rejected_at: str
+    error_category: Optional[str] = None
+    error_title: Optional[str] = None
+    entity_id: Optional[str] = None
+    record_id: Optional[str] = None
+
+
+class PaginatedRejectsResponse(BaseModel):
+    records: List[RejectedRecordItem]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+    total_stored: int
+    total_unresolved: int
+    active_filters: Optional[Dict[str, Any]] = None
+
+
+class SourceFileOption(BaseModel):
+    name: str
+    count: int
+    dataset_id: Optional[str] = None
+
+
+class RejectionReasonOption(BaseModel):
+    code: str
+    title: str
+    category: str
+    count: int
+
+
+class ResolutionStatusOption(BaseModel):
+    status: str
+    label: str
+    count: int
+
+
+class PipelineRunOption(BaseModel):
+    run_id: str
+    label: str
+    count: int
+
+
+class RejectsFilterOptionsResponse(BaseModel):
+    source_files: List[SourceFileOption]
+    rejection_reasons: List[RejectionReasonOption]
+    resolution_statuses: List[ResolutionStatusOption]
+    pipeline_runs: List[PipelineRunOption]
+    total_stored: int
+    total_unresolved: int
 
 
 # 6. Metrics & Reconciliation
@@ -197,11 +246,16 @@ class DashboardSummaryResponse(BaseModel):
     total_historical_accepted: Optional[int] = 0
     total_historical_rejected: Optional[int] = 0
     valid_records_percent: Optional[float] = 0.0
+    available_datasets: Optional[List[Dict[str, Any]]] = None
+    active_filters: Optional[Dict[str, Any]] = None
+    is_filtered: Optional[bool] = False
 
 
 class DashboardActivityResponse(BaseModel):
     daily_timeline: List[Dict[str, Any]]
     recent_runs: List[Dict[str, Any]]
+    granularity: Optional[str] = "daily"
+    is_filtered: Optional[bool] = False
 
 
 class DashboardDataQualityResponse(BaseModel):

@@ -87,22 +87,41 @@ export const apiClient = {
     const res = await api.get('/rejects', { params });
     return res.data;
   },
+  getRejectsFilterOptions: async () => {
+    const res = await api.get('/rejects/filter-options');
+    return res.data;
+  },
+  getExportRejectsUrl: (params = {}) => {
+    const cleanParams = Object.entries(params).reduce((acc, [k, v]) => {
+      if (v !== null && v !== undefined && v !== '' && v !== 'all') {
+        acc[k] = v;
+      }
+      return acc;
+    }, {});
+    const query = new URLSearchParams(cleanParams).toString();
+    return `/api/rejects/export?${query}`;
+  },
 
   // Dashboard Summary & Observability Endpoints
-  getDashboardSummary: async () => {
-    const res = await api.get('/dashboard/summary');
+  getDashboardFilterOptions: async () => {
+    const res = await api.get('/dashboard/filter-options');
     return res.data;
   },
-  getDashboardActivity: async () => {
-    const res = await api.get('/dashboard/activity');
+  getDashboardSummary: async (params = {}) => {
+    const res = await api.get('/dashboard/summary', { params });
     return res.data;
   },
-  getDashboardDataQuality: async () => {
-    const res = await api.get('/dashboard/data-quality');
+  getDashboardActivity: async (params = {}) => {
+    const res = await api.get('/dashboard/activity', { params });
     return res.data;
   },
-  getDashboardRecentRuns: async (limit = 10) => {
-    const res = await api.get(`/dashboard/recent-runs?limit=${limit}`);
+  getDashboardDataQuality: async (params = {}) => {
+    const res = await api.get('/dashboard/data-quality', { params });
+    return res.data;
+  },
+  getDashboardRecentRuns: async (params = {}) => {
+    const config = typeof params === 'number' ? { params: { limit: params } } : { params };
+    const res = await api.get('/dashboard/recent-runs', config);
     return res.data;
   },
   getHistoryRecords: async (params = {}) => {

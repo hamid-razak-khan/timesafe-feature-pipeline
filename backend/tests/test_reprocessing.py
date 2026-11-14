@@ -299,3 +299,40 @@ def test_safe_reprocess_flow_and_anti_leakage():
 
     db.close()
 
+
+def test_dashboard_filter_options_api():
+    """Verify GET /api/dashboard/filter-options returns datasets, date presets, and statuses."""
+    response = client.get("/api/dashboard/filter-options")
+    assert response.status_code == 200
+    data = response.json()
+    assert "datasets" in data
+    assert "date_presets" in data
+    assert "statuses" in data
+    assert len(data["datasets"]) > 0
+
+
+def test_dashboard_filtered_queries_api():
+    """Verify dashboard metrics update consistently when filtered by dataset, date, and status."""
+    # 1. Filter by specific dataset
+    r_tx = client.get("/api/dashboard/summary?source_file=transactions.csv")
+    assert r_tx.status_code == 200
+    d_tx = r_tx.json()
+    assert d_tx["is_filtered"] is True
+    assert d_tx["datasets_processed"] == 1
+    assert d_tx["valid_records"] > 0
+
+    # 2. Filter activity with hourly granularity
+    r_act = client.get("/api/dashboard/activity?source_file=transactions.csv&granularity=hourly")
+    assert r_act.status_code == 200
+    d_act = r_act.json()
+    assert d_act["granularity"] == "hourly"
+    assert len(d_act["daily_timeline"]) > 0
+    total_features = sum(item.get("features", 0) for item in d_act["daily_timeline"])
+    assert total_features > 0
+
+    # 3. Filter by status
+    r_warn = client.get("/api/dashboard/summary?status=warning")
+    assert r_warn.status_code == 200
+    d_warn = r_warn.json()
+    assert d_warn["is_filtered"] is True
+

@@ -80,7 +80,7 @@ export default function QualityChart({ runs = [], rejects = [] }) {
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(168,85,247,0.1)" />
                 <XAxis dataKey="name" stroke="#A1A1B5" fontSize={10} tickLine={false} />
                 <YAxis stroke="#A1A1B5" fontSize={10} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(168, 85, 247, 0.08)' }} />
                 <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
                 <Bar dataKey="accepted" name="Accepted Rows" fill="#10b981" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="rejected" name="Quarantined Rejects" fill="#f43f5e" radius={[4, 4, 0, 0]} />
@@ -115,7 +115,7 @@ export default function QualityChart({ runs = [], rejects = [] }) {
                   tickLine={false}
                   width={140}
                 />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(168, 85, 247, 0.08)' }} />
                 <Bar dataKey="count" name="Rejections" fill="#f43f5e" radius={[0, 4, 4, 0]}>
                   {reasonData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

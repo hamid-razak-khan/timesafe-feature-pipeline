@@ -122,7 +122,7 @@ export default function AdvancedModal({ isOpen, onClose }) {
           )}
 
           {activeTab === 'quality' && (
-            <div className="max-w-5xl mx-auto">
+            <div className="w-full mx-auto">
               <DataQuality />
             </div>
           )}

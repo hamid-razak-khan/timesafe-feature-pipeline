@@ -1,8 +1,11 @@
 """Data Ingestion and Synthetic Generation Endpoints."""
+import csv
+import io
 import os
 import shutil
-from typing import Optional, List
+from typing import Optional, List, Union, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from database.db import BaseSession
@@ -12,9 +15,12 @@ from backend.schemas import (
     GenerateDataResponse,
     IngestResponse,
     RejectedRecordItem,
+    PaginatedRejectsResponse,
+    RejectsFilterOptionsResponse,
 )
 from backend.config import settings
 from backend.services.ingestion_service import IngestionService
+from backend.services.history_service import HistoryService
 from scripts.generate_data import generate_datasets
 
 router = APIRouter()
@@ -121,20 +127,123 @@ async def api_ingest_file(
         )
 
 
-@router.get("/rejects", response_model=List[RejectedRecordItem])
-def api_get_rejected_records(
-    run_id: Optional[str] = None,
-    reason: Optional[str] = None,
-    limit: int = Query(100, ge=1, le=1000),
+@router.get("/rejects/filter-options", response_model=RejectsFilterOptionsResponse)
+def api_get_rejects_filter_options(db: Session = Depends(get_db)):
+    """Retrieve dynamic filter choices based on existing quarantined records in the database."""
+    service = HistoryService(db)
+    return service.get_quarantine_filter_options()
+
+
+@router.get("/rejects/export")
+def api_export_quarantine_records(
+    source_file: Optional[str] = Query(None, description="Filter by original source file"),
+    rejection_reason: Optional[str] = Query(None, description="Filter by rejection reason/code"),
+    reason: Optional[str] = Query(None, description="Alias for rejection_reason"),
+    status: Optional[str] = Query(None, description="Filter by resolution status"),
+    run_id: Optional[str] = Query(None, description="Filter by pipeline run ID"),
+    dataset_id: Optional[str] = Query(None, description="Filter by dataset ID"),
+    start_date: Optional[str] = Query(None, description="ISO or YYYY-MM-DD start date (UTC)"),
+    end_date: Optional[str] = Query(None, description="ISO or YYYY-MM-DD end date (UTC)"),
+    search: Optional[str] = Query(None, description="Search across ID, row, or message"),
+    sort: Optional[str] = Query("newest", description="Sort order: newest or oldest"),
     db: Session = Depends(get_db),
 ):
-    """Retrieve quarantined defective records with lineage and rejection reasons."""
-    query = db.query(RejectedRecord)
-    if run_id:
-        query = query.filter(RejectedRecord.run_id == run_id)
-    if reason:
-        query = query.filter(RejectedRecord.rejection_reason.ilike(f"%{reason}%"))
+    """Export all quarantined records matching active filters as a downloadable CSV."""
+    service = HistoryService(db)
+    res = service.get_quarantine_records(
+        source_file=source_file,
+        rejection_reason=rejection_reason or reason,
+        status_filter=status,
+        run_id=run_id,
+        dataset_id=dataset_id,
+        start_date=start_date,
+        end_date=end_date,
+        search=search,
+        sort_order=sort or "newest",
+        page=1,
+        page_size=50000,
+        limit=50000,
+    )
 
-    records = query.order_by(RejectedRecord.rejected_at.desc()).limit(limit).all()
-    return [r.to_dict() for r in records]
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "reject_id",
+        "source_file",
+        "source_row_number",
+        "record_id",
+        "entity_id",
+        "rejection_reason",
+        "error_category",
+        "error_title",
+        "resolution_status",
+        "run_id",
+        "rejected_at",
+        "resolved_at",
+        "raw_record",
+    ])
+
+    for r in res["records"]:
+        writer.writerow([
+            r.get("reject_id"),
+            r.get("source_file"),
+            r.get("source_row_number"),
+            r.get("record_id") or "",
+            r.get("entity_id") or "",
+            r.get("rejection_reason") or "",
+            r.get("error_category") or "",
+            r.get("error_title") or "",
+            r.get("resolution_status") or "unresolved",
+            r.get("run_id") or "",
+            r.get("rejected_at") or "",
+            r.get("resolved_at") or "",
+            r.get("raw_record") or "",
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=timesafe_quarantine_export.csv"},
+    )
+
+
+@router.get("/rejects", response_model=Union[PaginatedRejectsResponse, List[RejectedRecordItem]])
+def api_get_rejected_records(
+    source_file: Optional[str] = Query(None, description="Filter by original source file name"),
+    rejection_reason: Optional[str] = Query(None, description="Filter by rejection reason/code"),
+    reason: Optional[str] = Query(None, description="Alias for rejection_reason for backwards compatibility"),
+    status: Optional[str] = Query(None, description="Filter by resolution status"),
+    run_id: Optional[str] = Query(None, description="Filter by pipeline run ID"),
+    dataset_id: Optional[str] = Query(None, description="Filter by dataset ID"),
+    start_date: Optional[str] = Query(None, description="ISO or YYYY-MM-DD start date (UTC)"),
+    end_date: Optional[str] = Query(None, description="ISO or YYYY-MM-DD end date (UTC)"),
+    search: Optional[str] = Query(None, description="Search across reject ID, entity ID, record ID, row #, or error"),
+    sort: Optional[str] = Query("newest", description="Sort order: newest or oldest"),
+    page: Optional[int] = Query(None, ge=1, description="Page number (1-based) for server pagination"),
+    page_size: Optional[int] = Query(None, ge=1, le=500, description="Items per page"),
+    limit: Optional[int] = Query(100, ge=1, le=1000, description="Limit when not using page"),
+    db: Session = Depends(get_db),
+):
+    """Retrieve quarantined defective records with multi-dimensional filtering, search, and pagination."""
+    service = HistoryService(db)
+    res = service.get_quarantine_records(
+        source_file=source_file,
+        rejection_reason=rejection_reason or reason,
+        status_filter=status,
+        run_id=run_id,
+        dataset_id=dataset_id,
+        start_date=start_date,
+        end_date=end_date,
+        search=search,
+        sort_order=sort or "newest",
+        page=page,
+        page_size=page_size,
+        limit=limit,
+    )
+
+    if page is not None:
+        return res
+    # Backwards-compatible raw list return when page parameter is omitted
+    return res["records"]
 

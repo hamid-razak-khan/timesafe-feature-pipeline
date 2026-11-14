@@ -1,15 +1,17 @@
 """History, Observability, and Safe Reprocessing Service for TimeSafe."""
 import json
+import math
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Dict, Any, List, Optional, Tuple
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc, or_, and_
+from sqlalchemy import func, desc, or_, and_, cast, String
 
 from database.models import (
     Customer,
     Transaction,
+    PredictionRequest,
     FeatureSnapshot,
     TrainingLabel,
     PipelineRun,
@@ -82,6 +84,30 @@ ERROR_CATALOG: Dict[str, Dict[str, str]] = {
         "description": "Numeric value exceeds maximum allowed decimal precision.",
         "fix_guidance": "Limit numeric value to standard decimal precision (max 2 decimals).",
     },
+    "DUPLICATE_TRANSACTION_ID_IN_FILE": {
+        "title": "Duplicate Record ID in Batch",
+        "category": "Duplicate Record",
+        "description": "The batch contains multiple records sharing the same primary transaction identifier.",
+        "fix_guidance": "Deduplicate the source batch or assign distinct record identifiers.",
+    },
+    "TRANSACTION_PREDATES_CUSTOMER_CREATION": {
+        "title": "Transaction Predates Customer Registration",
+        "category": "Invalid Timestamps",
+        "description": "Event timestamp is earlier than the customer entity registration date.",
+        "fix_guidance": "Adjust event_time to be on or after customer registration date.",
+    },
+    "PREDICTION_CUTOFF_PREDATES_CUSTOMER_CREATION": {
+        "title": "Prediction Cutoff Predates Customer",
+        "category": "Invalid Timestamps",
+        "description": "Prediction cutoff timestamp is earlier than customer registration date.",
+        "fix_guidance": "Select a prediction cutoff timestamp on or after customer creation.",
+    },
+    "AVAILABLE_TIME_PREDATES_EVENT_TIME": {
+        "title": "Availability Precedes Event Date",
+        "category": "Invalid Timestamps",
+        "description": "The available_at timestamp cannot be earlier than event_time (causality violation).",
+        "fix_guidance": "Set available_at to be greater than or equal to event_time.",
+    },
 }
 
 
@@ -152,13 +178,211 @@ def parse_utc_timestamp(val: Any) -> Optional[datetime]:
     return ensure_utc(dt)
 
 
+def resolve_date_filter(
+    date_preset: Optional[str] = None,
+    start_str: Optional[str] = None,
+    end_str: Optional[str] = None,
+) -> Tuple[Optional[datetime], Optional[datetime]]:
+    """Parse and normalize date filtering bounds into UTC datetimes."""
+    now = datetime.now(timezone.utc)
+    if date_preset == "today":
+        start = datetime(now.year, now.month, now.day, 0, 0, 0, tzinfo=timezone.utc)
+        end = datetime(now.year, now.month, now.day, 23, 59, 59, 999999, tzinfo=timezone.utc)
+        return start, end
+    elif date_preset == "7d":
+        start = now - timedelta(days=7)
+        return start, now
+    elif date_preset == "30d":
+        start = now - timedelta(days=30)
+        return start, now
+
+    start, end = None, None
+    if start_str:
+        s = str(start_str).strip()
+        if len(s) == 10:
+            start = datetime.fromisoformat(s + "T00:00:00+00:00")
+        else:
+            if s.endswith("Z"):
+                s = s[:-1] + "+00:00"
+            start = datetime.fromisoformat(s)
+            if start.tzinfo is None:
+                start = start.replace(tzinfo=timezone.utc)
+    if end_str:
+        e = str(end_str).strip()
+        if len(e) == 10:
+            end = datetime.fromisoformat(e + "T23:59:59.999999+00:00")
+        else:
+            if e.endswith("Z"):
+                e = e[:-1] + "+00:00"
+            end = datetime.fromisoformat(e)
+            if end.tzinfo is None:
+                end = end.replace(tzinfo=timezone.utc)
+    return start, end
+
+
 class HistoryService:
     def __init__(self, session: Session):
         self.session = session
 
-    def get_dashboard_summary(self) -> Dict[str, Any]:
-        """Aggregate high-level metrics for the executive and operational dashboard."""
-        # 1. Distinct datasets count across history, transactions, and rejects
+    def get_dashboard_filter_options(self) -> Dict[str, Any]:
+        """Return available dataset options, counts, and filter choices."""
+        raw_files = set()
+        for row in self.session.query(Transaction.source_file).distinct().all():
+            if row[0]:
+                raw_files.add(row[0])
+        for row in self.session.query(RejectedRecord.source_file).distinct().all():
+            if row[0]:
+                raw_files.add(row[0])
+        for row in self.session.query(PipelineRun.source_file).distinct().all():
+            if row[0] and not row[0].startswith("batch_manifest"):
+                raw_files.add(row[0])
+        for row in self.session.query(SourceRecordHistory.source_file).distinct().all():
+            if row[0]:
+                raw_files.add(row[0])
+
+        datasets = []
+        for f in sorted(raw_files):
+            tx_cnt = self.session.query(func.count(Transaction.transaction_id)).filter(Transaction.source_file == f).scalar() or 0
+            rej_cnt = self.session.query(func.count(RejectedRecord.reject_id)).filter(RejectedRecord.source_file == f).scalar() or 0
+            if f == "customers.csv":
+                cust_cnt = self.session.query(func.count(Customer.customer_id)).scalar() or 0
+                tx_cnt = cust_cnt
+            elif f == "prediction_requests.csv":
+                pred_cnt = self.session.query(func.count(PredictionRequest.request_id)).scalar() or 0
+                tx_cnt = pred_cnt
+
+            datasets.append({
+                "id": f,
+                "label": f,
+                "valid_records": tx_cnt,
+                "rejected_records": rej_cnt,
+            })
+
+        return {
+            "datasets": datasets,
+            "date_presets": [
+                {"id": "all", "label": "All Time"},
+                {"id": "today", "label": "Today"},
+                {"id": "7d", "label": "Last 7 Days"},
+                {"id": "30d", "label": "Last 30 Days"},
+                {"id": "custom", "label": "Custom Range"},
+            ],
+            "statuses": [
+                {"id": "all", "label": "All Statuses"},
+                {"id": "completed", "label": "Completed"},
+                {"id": "warning", "label": "Completed with Rejections"},
+                {"id": "failed", "label": "Failed"},
+            ],
+        }
+
+    def _build_timeline(
+        self,
+        source_file: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        status_filter: Optional[str] = None,
+        granularity: str = "auto",
+    ) -> Tuple[List[Dict[str, Any]], str]:
+        """
+        Build a mathematically sound activity timeline:
+        - Ingestion runs (run_type != 'full_pipeline') provide accepted_rows and rejected_rows.
+        - Feature generation runs (feature_rows > 0) provide feature snapshot volume.
+        - Supports auto-detection: if dates <= 1 day, groups by hour (%H:00) to show meaningful activity.
+        - If dates > 1 day, groups by daily (%Y-%m-%d).
+        """
+        # Determine date span of matching runs
+        dq = self.session.query(
+            func.strftime("%Y-%m-%d", PipelineRun.start_time).label("day")
+        ).filter(PipelineRun.run_type != "full_pipeline")
+        if source_file:
+            dq = dq.filter(PipelineRun.source_file == source_file)
+        if start_time:
+            dq = dq.filter(PipelineRun.start_time >= start_time)
+        if end_time:
+            dq = dq.filter(PipelineRun.start_time <= end_time)
+
+        distinct_days = [r[0] for r in dq.distinct().all() if r[0]]
+        use_hourly = (granularity == "hourly") or (granularity == "auto" and len(distinct_days) <= 1)
+        fmt = "%H:00" if use_hourly else "%Y-%m-%d"
+
+        # 1. Ingestion query
+        iq = self.session.query(
+            func.strftime(fmt, PipelineRun.start_time).label("bucket"),
+            func.sum(PipelineRun.accepted_rows).label("accepted"),
+            func.sum(PipelineRun.rejected_rows).label("rejected"),
+            func.count(PipelineRun.run_id).label("runs_count"),
+        ).filter(PipelineRun.run_type != "full_pipeline")
+
+        if source_file:
+            iq = iq.filter(PipelineRun.source_file == source_file)
+        if start_time:
+            iq = iq.filter(PipelineRun.start_time >= start_time)
+        if end_time:
+            iq = iq.filter(PipelineRun.start_time <= end_time)
+        if status_filter and status_filter != "all":
+            if status_filter == "completed":
+                iq = iq.filter(PipelineRun.status == "success", PipelineRun.rejected_rows == 0)
+            elif status_filter in ("warning", "completed_with_rejections"):
+                iq = iq.filter(PipelineRun.status == "success", PipelineRun.rejected_rows > 0)
+            elif status_filter == "failed":
+                iq = iq.filter(PipelineRun.status == "failed")
+
+        ingest_rows = iq.group_by("bucket").all()
+
+        # 2. Feature runs query
+        fq = self.session.query(
+            func.strftime(fmt, PipelineRun.start_time).label("bucket"),
+            func.sum(PipelineRun.feature_rows).label("features"),
+        ).filter(PipelineRun.feature_rows > 0)
+
+        if start_time:
+            fq = fq.filter(PipelineRun.start_time >= start_time)
+        if end_time:
+            fq = fq.filter(PipelineRun.start_time <= end_time)
+        if status_filter and status_filter != "all":
+            if status_filter == "completed":
+                fq = fq.filter(PipelineRun.status == "success")
+            elif status_filter == "failed":
+                fq = fq.filter(PipelineRun.status == "failed")
+
+        if source_file and source_file == "customers.csv":
+            feat_map = {}
+        else:
+            feat_rows = fq.group_by("bucket").all()
+            feat_map = {r[0]: int(r[1] or 0) for r in feat_rows if r[0]}
+
+        all_buckets = sorted(set([r[0] for r in ingest_rows if r[0]] + list(feat_map.keys())))
+        ingest_map = {r[0]: (int(r[1] or 0), int(r[2] or 0), int(r[3] or 0)) for r in ingest_rows if r[0]}
+
+        timeline = []
+        for b in all_buckets:
+            acc, rej, cnt = ingest_map.get(b, (0, 0, 0))
+            feat = feat_map.get(b, 0)
+            disp = f"{b} UTC" if use_hourly else b
+            timeline.append({
+                "date": b,
+                "display_date": disp,
+                "accepted": acc,
+                "rejected": rej,
+                "features": feat,
+                "runs_count": cnt,
+                "source_file": source_file or "All Datasets",
+            })
+
+        return timeline, ("hourly" if use_hourly else "daily")
+
+    def get_dashboard_summary(
+        self,
+        source_file: Optional[str] = None,
+        date_preset: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        status_filter: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Aggregate high-level metrics for the executive and operational dashboard with filter support."""
+        start_time, end_time = resolve_date_filter(date_preset, start_date, end_date)
+
+        # 1. Distinct datasets count
         distinct_files = set()
         for row in self.session.query(SourceRecordHistory.source_file).distinct().all():
             if row[0]:
@@ -170,46 +394,89 @@ class HistoryService:
             if row[0]:
                 distinct_files.add(row[0])
 
-        total_tx = self.session.query(func.count(Transaction.transaction_id)).scalar() or 0
-        total_rej = self.session.query(func.count(RejectedRecord.reject_id)).scalar() or 0
-        total_features = self.session.query(func.count(FeatureSnapshot.snapshot_id)).scalar() or 0
-        total_hist = self.session.query(func.count(SourceRecordHistory.history_id)).scalar() or 0
+        datasets_processed = 1 if source_file else (len(distinct_files) if distinct_files else 1)
 
-        datasets_processed = len(distinct_files) if distinct_files else (1 if total_tx > 0 else 0)
+        # 2. Currently stored records according to source_file filter
+        if source_file:
+            if source_file == "customers.csv":
+                total_tx = self.session.query(func.count(Customer.customer_id)).scalar() or 0
+                total_features = 0
+            elif source_file == "prediction_requests.csv":
+                total_tx = self.session.query(func.count(PredictionRequest.request_id)).scalar() or 0
+                total_features = self.session.query(func.count(FeatureSnapshot.snapshot_id)).scalar() or 0
+            else:
+                total_tx = self.session.query(func.count(Transaction.transaction_id)).filter(Transaction.source_file == source_file).scalar() or 0
+                total_features = self.session.query(func.count(FeatureSnapshot.snapshot_id)).scalar() or 0
 
-        # 2. Historical processing totals without double-counting parent full_pipeline runs
-        hist_totals = (
-            self.session.query(
-                func.sum(PipelineRun.input_rows),
-                func.sum(PipelineRun.accepted_rows),
-                func.sum(PipelineRun.rejected_rows),
+            rej_q = self.session.query(func.count(RejectedRecord.reject_id)).filter(RejectedRecord.source_file == source_file)
+            needs_q = self.session.query(func.count(RejectedRecord.reject_id)).filter(
+                RejectedRecord.source_file == source_file,
+                or_(RejectedRecord.resolution_status == "unresolved", RejectedRecord.resolution_status == None),
             )
-            .filter(PipelineRun.run_type != "full_pipeline")
-            .first()
-        )
+        else:
+            total_tx = self.session.query(func.count(Transaction.transaction_id)).scalar() or 0
+            total_features = self.session.query(func.count(FeatureSnapshot.snapshot_id)).scalar() or 0
+            rej_q = self.session.query(func.count(RejectedRecord.reject_id))
+            needs_q = self.session.query(func.count(RejectedRecord.reject_id)).filter(
+                or_(RejectedRecord.resolution_status == "unresolved", RejectedRecord.resolution_status == None)
+            )
+
+        if start_time:
+            rej_q = rej_q.filter(RejectedRecord.created_at >= start_time)
+            needs_q = needs_q.filter(RejectedRecord.created_at >= start_time)
+        if end_time:
+            rej_q = rej_q.filter(RejectedRecord.created_at <= end_time)
+            needs_q = needs_q.filter(RejectedRecord.created_at <= end_time)
+
+        total_rej = rej_q.scalar() or 0
+        needs_attention = needs_q.scalar() or 0
+
+        # 3. Historical processing totals (non-full_pipeline runs to prevent double-counting)
+        hist_q = self.session.query(
+            func.sum(PipelineRun.input_rows),
+            func.sum(PipelineRun.accepted_rows),
+            func.sum(PipelineRun.rejected_rows),
+        ).filter(PipelineRun.run_type != "full_pipeline")
+
+        if source_file:
+            hist_q = hist_q.filter(PipelineRun.source_file == source_file)
+        if start_time:
+            hist_q = hist_q.filter(PipelineRun.start_time >= start_time)
+        if end_time:
+            hist_q = hist_q.filter(PipelineRun.start_time <= end_time)
+        if status_filter and status_filter != "all":
+            if status_filter == "completed":
+                hist_q = hist_q.filter(PipelineRun.status == "success", PipelineRun.rejected_rows == 0)
+            elif status_filter in ("warning", "completed_with_rejections"):
+                hist_q = hist_q.filter(PipelineRun.status == "success", PipelineRun.rejected_rows > 0)
+            elif status_filter == "failed":
+                hist_q = hist_q.filter(PipelineRun.status == "failed")
+
+        hist_totals = hist_q.first()
         total_hist_input = int(hist_totals[0] or 0) if hist_totals else 0
         total_hist_accepted = int(hist_totals[1] or 0) if hist_totals else 0
         total_hist_rejected = int(hist_totals[2] or 0) if hist_totals else 0
 
-        # Total distinct business records processed
+        # Donut Chart and Data Quality Ratio
         distinct_records_total = total_tx + total_rej
-        total_processed = max(total_hist, distinct_records_total, total_hist_input)
+        total_processed = max(distinct_records_total, total_hist_input)
         rejection_rate = round((total_rej / distinct_records_total * 100), 1) if distinct_records_total > 0 else 0.0
         valid_records_percent = round((total_tx / distinct_records_total * 100), 1) if distinct_records_total > 0 else 0.0
 
-        # Unresolved rejects needing attention
-        needs_attention = self.session.query(func.count(RejectedRecord.reject_id)).filter(
-            or_(RejectedRecord.resolution_status == "unresolved", RejectedRecord.resolution_status == None)
-        ).scalar() or 0
-
-        # Rejection reasons summary with friendly titles
-        reasons_query = (
-            self.session.query(RejectedRecord.rejection_reason, func.count(RejectedRecord.reject_id))
-            .group_by(RejectedRecord.rejection_reason)
-            .all()
+        # 4. Rejection reasons summary with friendly titles
+        reasons_q = self.session.query(
+            RejectedRecord.rejection_reason,
+            func.count(RejectedRecord.reject_id),
         )
+        if source_file:
+            reasons_q = reasons_q.filter(RejectedRecord.source_file == source_file)
+        if start_time:
+            reasons_q = reasons_q.filter(RejectedRecord.created_at >= start_time)
+        if end_time:
+            reasons_q = reasons_q.filter(RejectedRecord.created_at <= end_time)
+
         reasons_summary = []
-        for reason_code, count in reasons_query:
+        for reason_code, count in reasons_q.group_by(RejectedRecord.rejection_reason).all():
             title, category, descr, _ = map_error_to_metadata(reason_code)
             reasons_summary.append({
                 "code": reason_code,
@@ -220,53 +487,38 @@ class HistoryService:
             })
         reasons_summary.sort(key=lambda x: x["count"], reverse=True)
 
-        # Accepted vs Rejected distribution
         accepted_vs_rejected = {
             "accepted": total_tx,
             "rejected": total_rej,
             "valid_percent": valid_records_percent,
         }
 
-        # Activity timeline by day (excluding parent full_pipeline to prevent double counting)
-        timeline_query = (
-            self.session.query(
-                func.strftime("%Y-%m-%d", PipelineRun.start_time).label("run_date"),
-                func.sum(PipelineRun.accepted_rows).label("accepted"),
-                func.sum(PipelineRun.rejected_rows).label("rejected"),
-                func.sum(PipelineRun.feature_rows).label("features"),
-            )
-            .filter(PipelineRun.run_type != "full_pipeline")
-            .group_by("run_date")
-            .order_by("run_date")
-            .limit(14)
-            .all()
+        # 5. Activity timeline (supports hourly / daily granularity and filter criteria)
+        activity_timeline, _ = self._build_timeline(
+            source_file=source_file,
+            start_time=start_time,
+            end_time=end_time,
+            status_filter=status_filter,
+            granularity="auto",
         )
-        activity_timeline = []
-        for row in timeline_query:
-            if row[0]:
-                activity_timeline.append({
-                    "date": row[0],
-                    "accepted": int(row[1] or 0),
-                    "rejected": int(row[2] or 0),
-                    "features": int(row[3] or 0),
-                })
 
-        if not activity_timeline and distinct_records_total > 0:
-            today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-            activity_timeline = [{
-                "date": today_str,
-                "accepted": total_tx,
-                "rejected": total_rej,
-                "features": total_features,
-            }]
+        # 6. Recent pipeline activity matching filters
+        recent_q = self.session.query(PipelineRun)
+        if source_file:
+            recent_q = recent_q.filter(PipelineRun.source_file == source_file)
+        if start_time:
+            recent_q = recent_q.filter(PipelineRun.start_time >= start_time)
+        if end_time:
+            recent_q = recent_q.filter(PipelineRun.start_time <= end_time)
+        if status_filter and status_filter != "all":
+            if status_filter == "completed":
+                recent_q = recent_q.filter(PipelineRun.status == "success", PipelineRun.rejected_rows == 0)
+            elif status_filter in ("warning", "completed_with_rejections"):
+                recent_q = recent_q.filter(PipelineRun.status == "success", PipelineRun.rejected_rows > 0)
+            elif status_filter == "failed":
+                recent_q = recent_q.filter(PipelineRun.status == "failed")
 
-        # Recent pipeline activity
-        recent_runs_query = (
-            self.session.query(PipelineRun)
-            .order_by(PipelineRun.start_time.desc())
-            .limit(6)
-            .all()
-        )
+        recent_runs_query = recent_q.order_by(PipelineRun.start_time.desc()).limit(8).all()
         recent_activity = []
         for r in recent_runs_query:
             friendly_status, badge = format_run_status(r.status, r.rejected_rows)
@@ -296,6 +548,17 @@ class HistoryService:
                 "duration_seconds": round(float(r.duration_seconds or 0.0), 2),
             })
 
+        # 7. Available datasets for filter bar
+        filter_options = self.get_dashboard_filter_options()
+
+        is_filtered = bool(
+            source_file or
+            (date_preset and date_preset != "all") or
+            start_date or
+            end_date or
+            (status_filter and status_filter != "all")
+        )
+
         return {
             "datasets_processed": datasets_processed,
             "valid_records": total_tx,
@@ -314,41 +577,53 @@ class HistoryService:
             "accepted_vs_rejected": accepted_vs_rejected,
             "activity_timeline": activity_timeline,
             "recent_activity": recent_activity,
+            "available_datasets": filter_options["datasets"],
+            "active_filters": {
+                "source_file": source_file,
+                "date_preset": date_preset,
+                "start_date": start_date,
+                "end_date": end_date,
+                "status": status_filter,
+            },
+            "is_filtered": is_filtered,
         }
 
-    def get_dashboard_activity(self) -> Dict[str, Any]:
+    def get_dashboard_activity(
+        self,
+        source_file: Optional[str] = None,
+        date_preset: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        status_filter: Optional[str] = None,
+        granularity: str = "auto",
+    ) -> Dict[str, Any]:
         """Provide detailed activity timelines and per-run breakdown without double counting."""
-        # 1. Date timeline
-        timeline_query = (
-            self.session.query(
-                func.strftime("%Y-%m-%d", PipelineRun.start_time).label("run_date"),
-                func.sum(PipelineRun.accepted_rows).label("accepted"),
-                func.sum(PipelineRun.rejected_rows).label("rejected"),
-                func.sum(PipelineRun.feature_rows).label("features"),
-            )
-            .filter(PipelineRun.run_type != "full_pipeline")
-            .group_by("run_date")
-            .order_by("run_date")
-            .limit(14)
-            .all()
+        start_time, end_time = resolve_date_filter(date_preset, start_date, end_date)
+        daily_timeline, gran_used = self._build_timeline(
+            source_file=source_file,
+            start_time=start_time,
+            end_time=end_time,
+            status_filter=status_filter,
+            granularity=granularity,
         )
-        daily_timeline = []
-        for row in timeline_query:
-            if row[0]:
-                daily_timeline.append({
-                    "date": row[0],
-                    "accepted": int(row[1] or 0),
-                    "rejected": int(row[2] or 0),
-                    "features": int(row[3] or 0),
-                })
 
-        # 2. Recent execution runs activity (last 15 runs)
-        runs_query = (
-            self.session.query(PipelineRun)
-            .order_by(PipelineRun.start_time.desc())
-            .limit(15)
-            .all()
-        )
+        # Recent execution runs activity matching filter
+        runs_q = self.session.query(PipelineRun)
+        if source_file:
+            runs_q = runs_q.filter(PipelineRun.source_file == source_file)
+        if start_time:
+            runs_q = runs_q.filter(PipelineRun.start_time >= start_time)
+        if end_time:
+            runs_q = runs_q.filter(PipelineRun.start_time <= end_time)
+        if status_filter and status_filter != "all":
+            if status_filter == "completed":
+                runs_q = runs_q.filter(PipelineRun.status == "success", PipelineRun.rejected_rows == 0)
+            elif status_filter in ("warning", "completed_with_rejections"):
+                runs_q = runs_q.filter(PipelineRun.status == "success", PipelineRun.rejected_rows > 0)
+            elif status_filter == "failed":
+                runs_q = runs_q.filter(PipelineRun.status == "failed")
+
+        runs_query = runs_q.order_by(PipelineRun.start_time.desc()).limit(15).all()
         recent_runs = []
         for r in runs_query:
             friendly_status, badge = format_run_status(r.status, r.rejected_rows)
@@ -369,28 +644,60 @@ class HistoryService:
                 "badge_color": badge,
             })
 
+        is_filtered = bool(
+            source_file or
+            (date_preset and date_preset != "all") or
+            start_date or
+            end_date or
+            (status_filter and status_filter != "all")
+        )
+
         return {
             "daily_timeline": daily_timeline,
             "recent_runs": recent_runs,
+            "granularity": gran_used,
+            "is_filtered": is_filtered,
         }
 
-    def get_dashboard_data_quality(self) -> Dict[str, Any]:
-        """Provide detailed data quality distributions and category breakdowns."""
-        total_rej = self.session.query(func.count(RejectedRecord.reject_id)).scalar() or 0
-        needs_attention = self.session.query(func.count(RejectedRecord.reject_id)).filter(
+    def get_dashboard_data_quality(
+        self,
+        source_file: Optional[str] = None,
+        date_preset: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Provide detailed data quality distributions and category breakdowns with filter support."""
+        start_time, end_time = resolve_date_filter(date_preset, start_date, end_date)
+
+        rej_q = self.session.query(func.count(RejectedRecord.reject_id))
+        needs_q = self.session.query(func.count(RejectedRecord.reject_id)).filter(
             or_(RejectedRecord.resolution_status == "unresolved", RejectedRecord.resolution_status == None)
-        ).scalar() or 0
+        )
+        reasons_q = self.session.query(
+            RejectedRecord.rejection_reason,
+            func.count(RejectedRecord.reject_id),
+        )
+
+        if source_file:
+            rej_q = rej_q.filter(RejectedRecord.source_file == source_file)
+            needs_q = needs_q.filter(RejectedRecord.source_file == source_file)
+            reasons_q = reasons_q.filter(RejectedRecord.source_file == source_file)
+        if start_time:
+            rej_q = rej_q.filter(RejectedRecord.created_at >= start_time)
+            needs_q = needs_q.filter(RejectedRecord.created_at >= start_time)
+            reasons_q = reasons_q.filter(RejectedRecord.created_at >= start_time)
+        if end_time:
+            rej_q = rej_q.filter(RejectedRecord.created_at <= end_time)
+            needs_q = needs_q.filter(RejectedRecord.created_at <= end_time)
+            reasons_q = reasons_q.filter(RejectedRecord.created_at <= end_time)
+
+        total_rej = rej_q.scalar() or 0
+        needs_attention = needs_q.scalar() or 0
         resolved_count = max(0, total_rej - needs_attention)
 
-        # Reasons summary
-        reasons_query = (
-            self.session.query(RejectedRecord.rejection_reason, func.count(RejectedRecord.reject_id))
-            .group_by(RejectedRecord.rejection_reason)
-            .all()
-        )
         reasons_summary = []
         category_counts: Dict[str, int] = {}
-        for reason_code, count in reasons_query:
+        for reason_code, count in reasons_q.group_by(RejectedRecord.rejection_reason).all():
             title, category, descr, guidance = map_error_to_metadata(reason_code)
             category_counts[category] = category_counts.get(category, 0) + count
             reasons_summary.append({
@@ -418,15 +725,36 @@ class HistoryService:
             "integrity_status": "PASSED" if total_rej == 0 or resolved_count == total_rej else "ATTENTION_REQUIRED",
         }
 
-    def get_dashboard_recent_runs(self, limit: int = 10) -> Dict[str, Any]:
-        """Fetch latest pipeline execution runs with full row accounting."""
-        total_runs = self.session.query(func.count(PipelineRun.run_id)).scalar() or 0
-        runs_query = (
-            self.session.query(PipelineRun)
-            .order_by(PipelineRun.start_time.desc())
-            .limit(limit)
-            .all()
-        )
+    def get_dashboard_recent_runs(
+        self,
+        limit: int = 10,
+        source_file: Optional[str] = None,
+        date_preset: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        status_filter: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Fetch latest pipeline execution runs with full row accounting and filter support."""
+        start_time, end_time = resolve_date_filter(date_preset, start_date, end_date)
+
+        runs_q = self.session.query(PipelineRun)
+        if source_file:
+            runs_q = runs_q.filter(PipelineRun.source_file == source_file)
+        if start_time:
+            runs_q = runs_q.filter(PipelineRun.start_time >= start_time)
+        if end_time:
+            runs_q = runs_q.filter(PipelineRun.start_time <= end_time)
+        if status_filter and status_filter != "all":
+            if status_filter == "completed":
+                runs_q = runs_q.filter(PipelineRun.status == "success", PipelineRun.rejected_rows == 0)
+            elif status_filter in ("warning", "completed_with_rejections"):
+                runs_q = runs_q.filter(PipelineRun.status == "success", PipelineRun.rejected_rows > 0)
+            elif status_filter == "failed":
+                runs_q = runs_q.filter(PipelineRun.status == "failed")
+
+        total_runs = runs_q.count()
+        runs_query = runs_q.order_by(PipelineRun.start_time.desc()).limit(limit).all()
+
         runs_list = []
         for r in runs_query:
             friendly_status, badge = format_run_status(r.status, r.rejected_rows)
@@ -551,8 +879,19 @@ class HistoryService:
         if not rec:
             # Fallback check by record_id
             rec = self.session.query(SourceRecordHistory).filter(SourceRecordHistory.record_id == history_id).first()
-            if not rec:
-                return None
+        if not rec:
+            # Fallback check if passed ID is a reject_id prefixed with HIST_
+            rec = self.session.query(SourceRecordHistory).filter(SourceRecordHistory.history_id == f"HIST_{history_id}").first()
+        if not rec:
+            # Fallback check if this matches a RejectedRecord by reject_id
+            rej_fallback = self.session.query(RejectedRecord).filter(RejectedRecord.reject_id == history_id).first()
+            if rej_fallback:
+                rec = self.session.query(SourceRecordHistory).filter(
+                    SourceRecordHistory.source_file == rej_fallback.source_file,
+                    SourceRecordHistory.source_row_number == rej_fallback.source_row_number
+                ).first()
+        if not rec:
+            return None
 
         # Look up corresponding reject if any
         reject = None
@@ -1023,4 +1362,250 @@ class HistoryService:
             "effective_available_at": effective_available_at.isoformat(),
             "affected_snapshots_warning": snapshot_warning,
             "retry_run_id": retry_run_id,
+        }
+
+    def get_quarantine_filter_options(self) -> Dict[str, Any]:
+        """Retrieve dynamic filter choices based on existing quarantined records in the database."""
+        # 1. Distinct Source Files with counts
+        file_counts = (
+            self.session.query(
+                RejectedRecord.source_file,
+                func.count(RejectedRecord.reject_id)
+            )
+            .group_by(RejectedRecord.source_file)
+            .order_by(func.count(RejectedRecord.reject_id).desc())
+            .all()
+        )
+        source_files = [
+            {"name": f[0], "count": f[1], "dataset_id": None}
+            for f in file_counts if f[0]
+        ]
+
+        # 2. Rejection Reasons grouped by base category
+        raw_reasons = (
+            self.session.query(
+                RejectedRecord.rejection_reason,
+                func.count(RejectedRecord.reject_id)
+            )
+            .group_by(RejectedRecord.rejection_reason)
+            .all()
+        )
+        reasons_map: Dict[str, Dict[str, Any]] = {}
+        for r_str, cnt in raw_reasons:
+            if not r_str:
+                continue
+            base = r_str.split("(")[0].split(":")[0].strip()
+            if base not in reasons_map:
+                title, cat, _, _ = map_error_to_metadata(base)
+                reasons_map[base] = {
+                    "code": base,
+                    "title": title,
+                    "category": cat,
+                    "count": 0,
+                }
+            reasons_map[base]["count"] += cnt
+
+        rejection_reasons = sorted(
+            list(reasons_map.values()),
+            key=lambda x: x["count"],
+            reverse=True
+        )
+
+        # 3. Resolution Statuses
+        status_counts = dict(
+            self.session.query(
+                RejectedRecord.resolution_status,
+                func.count(RejectedRecord.reject_id)
+            )
+            .group_by(RejectedRecord.resolution_status)
+            .all()
+        )
+        unres_count = status_counts.get("unresolved", 0) + status_counts.get(None, 0)
+        repr_count = status_counts.get("reprocessed", 0)
+        corr_count = status_counts.get("corrected", 0)
+        failed_count = status_counts.get("retry_failed", 0)
+
+        resolution_statuses = [
+            {"status": "unresolved", "label": "Unresolved", "count": unres_count},
+            {"status": "reprocessed", "label": "Reprocessed", "count": repr_count},
+            {"status": "corrected", "label": "Corrected", "count": corr_count},
+            {"status": "retry_failed", "label": "Retry Failed", "count": failed_count},
+        ]
+
+        # 4. Pipeline Runs with reject counts
+        run_counts = (
+            self.session.query(
+                RejectedRecord.run_id,
+                func.count(RejectedRecord.reject_id)
+            )
+            .group_by(RejectedRecord.run_id)
+            .order_by(func.count(RejectedRecord.reject_id).desc())
+            .limit(100)
+            .all()
+        )
+        pipeline_runs = [
+            {
+                "run_id": r[0],
+                "label": f"{r[0]} ({r[1]} rejects)",
+                "count": r[1]
+            }
+            for r in run_counts if r[0]
+        ]
+
+        total_stored = self.session.query(func.count(RejectedRecord.reject_id)).scalar() or 0
+        total_unresolved = unres_count
+
+        return {
+            "source_files": source_files,
+            "rejection_reasons": rejection_reasons,
+            "resolution_statuses": resolution_statuses,
+            "pipeline_runs": pipeline_runs,
+            "total_stored": total_stored,
+            "total_unresolved": total_unresolved,
+        }
+
+    def get_quarantine_records(
+        self,
+        source_file: Optional[str] = None,
+        rejection_reason: Optional[str] = None,
+        status_filter: Optional[str] = None,
+        run_id: Optional[str] = None,
+        dataset_id: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        search: Optional[str] = None,
+        sort_order: str = "newest",
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+        limit: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Query quarantined records with multi-dimensional filtering, searching, and pagination."""
+        query = self.session.query(RejectedRecord)
+
+        # 1. Source file filter
+        if source_file and source_file.lower() != "all":
+            query = query.filter(RejectedRecord.source_file == source_file)
+
+        # 2. Rejection reason filter
+        if rejection_reason and rejection_reason.lower() != "all":
+            query = query.filter(RejectedRecord.rejection_reason.ilike(f"%{rejection_reason}%"))
+
+        # 3. Status filter
+        if status_filter and status_filter.lower() != "all":
+            if status_filter.lower() == "unresolved":
+                query = query.filter(or_(
+                    RejectedRecord.resolution_status == "unresolved",
+                    RejectedRecord.resolution_status.is_(None)
+                ))
+            else:
+                query = query.filter(RejectedRecord.resolution_status == status_filter.lower())
+
+        # 4. Pipeline run filter
+        if run_id and run_id.lower() != "all":
+            query = query.filter(RejectedRecord.run_id == run_id)
+
+        # 5. Dataset ID filter
+        if dataset_id and dataset_id.lower() != "all":
+            query = query.filter(RejectedRecord.raw_record.ilike(f"%{dataset_id}%"))
+
+        # 6. Date range filter
+        if start_date:
+            try:
+                s_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+            except Exception:
+                try:
+                    s_dt = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                except Exception:
+                    s_dt = None
+            if s_dt:
+                query = query.filter(RejectedRecord.rejected_at >= s_dt)
+
+        if end_date:
+            try:
+                e_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+            except Exception:
+                try:
+                    e_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(
+                        hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc
+                    )
+                except Exception:
+                    e_dt = None
+            if e_dt:
+                query = query.filter(RejectedRecord.rejected_at <= e_dt)
+
+        # 7. Search filter
+        if search and search.strip():
+            term = f"%{search.strip()}%"
+            clauses = [
+                RejectedRecord.reject_id.ilike(term),
+                RejectedRecord.rejection_reason.ilike(term),
+                RejectedRecord.raw_record.ilike(term),
+            ]
+            if search.strip().isdigit():
+                clauses.append(RejectedRecord.source_row_number == int(search.strip()))
+            else:
+                clauses.append(cast(RejectedRecord.source_row_number, String).ilike(term))
+            query = query.filter(or_(*clauses))
+
+        # Total matching records count
+        total_matching = query.count()
+
+        # Database-wide counts
+        total_stored = self.session.query(func.count(RejectedRecord.reject_id)).scalar() or 0
+        total_unresolved = (
+            self.session.query(func.count(RejectedRecord.reject_id))
+            .filter(or_(RejectedRecord.resolution_status == "unresolved", RejectedRecord.resolution_status.is_(None)))
+            .scalar() or 0
+        )
+
+        # Sorting (stable: secondary sort by reject_id)
+        if sort_order == "oldest":
+            query = query.order_by(RejectedRecord.rejected_at.asc(), RejectedRecord.reject_id.asc())
+        else:
+            query = query.order_by(RejectedRecord.rejected_at.desc(), RejectedRecord.reject_id.desc())
+
+        # Pagination / Slicing
+        effective_page = page or 1
+        effective_page_size = page_size or limit or 25
+        if page is not None:
+            offset = (effective_page - 1) * effective_page_size
+            records_db = query.offset(offset).limit(effective_page_size).all()
+        else:
+            records_db = query.limit(limit or 100).all()
+
+        formatted_records = []
+        for r in records_db:
+            rec_dict = r.to_dict()
+            try:
+                raw = json.loads(r.raw_record) if isinstance(r.raw_record, str) else {}
+            except Exception:
+                raw = {}
+            rec_dict["record_id"] = raw.get("transaction_id") or raw.get("record_id") or raw.get("event_id")
+            rec_dict["entity_id"] = raw.get("customer_id") or raw.get("entity_id")
+            title, cat, _, _ = map_error_to_metadata(r.rejection_reason)
+            rec_dict["error_title"] = title
+            rec_dict["error_category"] = cat
+            formatted_records.append(rec_dict)
+
+        total_pages = math.ceil(total_matching / effective_page_size) if total_matching > 0 else 1
+
+        return {
+            "records": formatted_records,
+            "total": total_matching,
+            "page": effective_page,
+            "page_size": effective_page_size,
+            "total_pages": total_pages,
+            "total_stored": total_stored,
+            "total_unresolved": total_unresolved,
+            "active_filters": {
+                "source_file": source_file,
+                "rejection_reason": rejection_reason,
+                "status": status_filter,
+                "run_id": run_id,
+                "dataset_id": dataset_id,
+                "start_date": start_date,
+                "end_date": end_date,
+                "search": search,
+                "sort": sort_order,
+            },
         }

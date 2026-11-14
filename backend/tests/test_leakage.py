@@ -148,3 +148,95 @@ def test_label_generation_when_window_complete(populated_test_db):
     assert res["is_observable"] is True
     assert res["label_purchase_next_7d"] == 1
 
+
+def test_future_or_late_arriving_event_does_not_alter_historical_feature(populated_test_db):
+    """
+    Deterministic proof that inserting future or late-arriving events
+    does not alter previously computed historical features for cutoff T.
+    """
+    from database.models import FeatureSnapshot
+
+    session, engine, _ = populated_test_db
+    customer_id = "CUST_0001"
+    cutoff = datetime(2026, 5, 31, 12, 0, 0, tzinfo=timezone.utc)
+
+    # 1. Seed historical baseline transaction (5 days before T)
+    baseline_tx = Transaction(
+        transaction_id="TX_BASELINE_PAST",
+        customer_id=customer_id,
+        event_time=cutoff - timedelta(days=5),
+        available_at=cutoff - timedelta(days=5, minutes=-10),
+        amount=100.00,
+        transaction_type="purchase",
+        source_file="initial_batch.csv",
+    )
+    session.add(baseline_tx)
+    session.commit()
+
+    service = FeatureEngineeringService(session)
+
+    # 2. Compute and publish baseline feature snapshot as of cutoff T
+    initial_features = service.generate_features_for_request(
+        customer_id=customer_id,
+        as_of_time=cutoff,
+        feature_version="v1",
+        publish=True,
+    )
+    assert initial_features["txn_count_7d"] == 1
+    assert initial_features["txn_count_30d"] == 1
+    assert initial_features["total_purchase_amount_30d"] == 100.0
+    assert initial_features["avg_purchase_amount_30d"] == 100.0
+
+    # 3. Insert future event (event_time > T)
+    future_tx = Transaction(
+        transaction_id="TX_LEAKAGE_FUTURE",
+        customer_id=customer_id,
+        event_time=cutoff + timedelta(hours=3),
+        available_at=cutoff + timedelta(hours=3, minutes=10),
+        amount=999.00,
+        transaction_type="purchase",
+        source_file="future_stream.csv",
+    )
+
+    # 4. Insert late-arriving event (event_time < T, but available_at > T)
+    late_tx = Transaction(
+        transaction_id="TX_LEAKAGE_LATE_ARRIVING",
+        customer_id=customer_id,
+        event_time=cutoff - timedelta(hours=2),
+        available_at=cutoff + timedelta(hours=6),  # Available ONLY after T!
+        amount=777.00,
+        transaction_type="purchase",
+        source_file="late_stream.csv",
+    )
+    session.add_all([future_tx, late_tx])
+    session.commit()
+
+    # 5. Re-evaluate features at cutoff T
+    recalculated_features = service.generate_features_for_request(
+        customer_id=customer_id,
+        as_of_time=cutoff,
+        feature_version="v1",
+        publish=False,
+    )
+
+    # 6. Mathematical Invariant Verification: All features at cutoff T MUST REMAIN IDENTICAL
+    assert recalculated_features["txn_count_7d"] == initial_features["txn_count_7d"] == 1
+    assert recalculated_features["txn_count_30d"] == initial_features["txn_count_30d"] == 1
+    assert recalculated_features["total_purchase_amount_30d"] == initial_features["total_purchase_amount_30d"] == 100.0
+    assert recalculated_features["avg_purchase_amount_30d"] == initial_features["avg_purchase_amount_30d"] == 100.0
+    assert recalculated_features["days_since_last_txn"] == initial_features["days_since_last_txn"]
+
+    # Verify published snapshot in database was not mutated
+    snapshot = (
+        session.query(FeatureSnapshot)
+        .filter(
+            FeatureSnapshot.customer_id == customer_id,
+            FeatureSnapshot.as_of_time == cutoff,
+            FeatureSnapshot.feature_version == "v1",
+        )
+        .first()
+    )
+    assert snapshot is not None
+    assert snapshot.txn_count_7d == 1
+    assert float(snapshot.total_purchase_amount_30d) == 100.0
+
