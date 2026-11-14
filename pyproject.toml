@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "timesafe-feature-pipeline"
+version = "0.1.0"
+description = "TimeSafe: Point-in-Time ML Feature Pipeline for E-Commerce Transaction Data"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "pandas>=2.0.0",
+    "pydantic>=2.0.0",
+    "sqlalchemy>=1.4.0",
+    "pytest>=7.0.0",
+    "httpx>=0.25.0",
+    "python-multipart>=0.0.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
