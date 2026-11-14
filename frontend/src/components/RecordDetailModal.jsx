@@ -56,42 +56,42 @@ export default function RecordDetailModal({ isOpen, onClose, historyId, onOpenCo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#0f172a] border border-slate-700/80 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-[#16112B] border border-[rgba(168,85,247,0.25)] rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl shadow-[#8B5CF6]/10 overflow-hidden">
         {/* Header */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-[#0a0f1d]">
+        <div className="p-5 border-b border-[rgba(168,85,247,0.18)] flex items-center justify-between bg-[#10101F]">
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+            <div className="w-9 h-9 rounded-xl bg-[#8B5CF6]/10 border border-[#8B5CF6]/30 flex items-center justify-center text-[#D8B4FE]">
               <History className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="text-base font-bold text-slate-100">Record Lifecycle & Audit Trail</h3>
+                <h3 className="text-base font-bold text-[#F8F7FF]">Record Lifecycle & Audit Trail</h3>
                 {rec?.processing_status && (
                   <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${getStatusBadge(rec.processing_status)}`}>
                     {rec.processing_status}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-400 font-mono mt-0.5">
+              <p className="text-xs text-[#D8B4FE] font-mono mt-0.5">
                 ID: {rec?.record_id || historyId}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-[#A1A1B5] hover:text-[#F8F7FF] hover:bg-[#211936] transition-colors border border-transparent hover:border-[rgba(168,85,247,0.2)]"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content Body */}
-        <div className="p-6 space-y-6 overflow-y-auto flex-1">
+        <div className="p-6 space-y-6 overflow-y-auto flex-1 bg-[#080811]">
           {isLoading ? (
             <div className="py-12 flex flex-col items-center justify-center space-y-3">
-              <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-xs text-slate-400">Loading record audit history...</p>
+              <div className="w-8 h-8 border-2 border-[#8B5CF6] border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-xs text-[#A1A1B5]">Loading record audit history...</p>
             </div>
           ) : error ? (
             <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center space-x-2">
@@ -110,54 +110,54 @@ export default function RecordDetailModal({ isOpen, onClose, historyId, onOpenCo
 
               {/* Record Summary Metadata Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3 rounded-xl bg-[#0a0f1d] border border-slate-800">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block">Entity ID</span>
-                  <span className="text-xs font-mono font-medium text-slate-200 mt-0.5 block truncate">
+                <div className="p-3 rounded-xl bg-[#16112B] border border-[rgba(168,85,247,0.18)]">
+                  <span className="text-[10px] text-[#A1A1B5] uppercase tracking-wider font-semibold block">Entity ID</span>
+                  <span className="text-xs font-mono font-medium text-[#F8F7FF] mt-0.5 block truncate">
                     {rec?.entity_id || '—'}
                   </span>
                 </div>
-                <div className="p-3 rounded-xl bg-[#0a0f1d] border border-slate-800">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block">Amount</span>
-                  <span className="text-xs font-mono font-medium text-slate-200 mt-0.5 block">
+                <div className="p-3 rounded-xl bg-[#16112B] border border-[rgba(168,85,247,0.18)]">
+                  <span className="text-[10px] text-[#A1A1B5] uppercase tracking-wider font-semibold block">Amount</span>
+                  <span className="text-xs font-mono font-medium text-[#F8F7FF] mt-0.5 block">
                     {rec?.amount !== null && rec?.amount !== undefined ? `$${Number(rec.amount).toFixed(2)}` : '—'}
                   </span>
                 </div>
-                <div className="p-3 rounded-xl bg-[#0a0f1d] border border-slate-800">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block">Source File</span>
-                  <span className="text-xs font-medium text-slate-200 mt-0.5 block truncate">
+                <div className="p-3 rounded-xl bg-[#16112B] border border-[rgba(168,85,247,0.18)]">
+                  <span className="text-[10px] text-[#A1A1B5] uppercase tracking-wider font-semibold block">Source File</span>
+                  <span className="text-xs font-medium text-[#F8F7FF] mt-0.5 block truncate">
                     {rec?.source_file} (row {rec?.source_row_number})
                   </span>
                 </div>
-                <div className="p-3 rounded-xl bg-[#0a0f1d] border border-slate-800">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block">Event Type</span>
-                  <span className="text-xs font-medium text-slate-200 mt-0.5 block capitalize">
+                <div className="p-3 rounded-xl bg-[#16112B] border border-[rgba(168,85,247,0.18)]">
+                  <span className="text-[10px] text-[#A1A1B5] uppercase tracking-wider font-semibold block">Event Type</span>
+                  <span className="text-xs font-medium text-[#F8F7FF] mt-0.5 block capitalize">
                     {rec?.event_type || 'transaction'}
                   </span>
                 </div>
               </div>
 
               {/* Timestamps Card */}
-              <div className="p-4 rounded-xl bg-[#0a0f1d] border border-slate-800 space-y-2 text-xs">
-                <div className="flex items-center space-x-2 text-slate-400 font-semibold mb-2">
-                  <Clock className="w-3.5 h-3.5 text-blue-400" />
+              <div className="p-4 rounded-xl bg-[#16112B] border border-[rgba(168,85,247,0.18)] space-y-2 text-xs">
+                <div className="flex items-center space-x-2 text-[#D8B4FE] font-semibold mb-2">
+                  <Clock className="w-3.5 h-3.5 text-[#8B5CF6]" />
                   <span>Dual Timestamps & Anti-Leakage Tracking</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono text-[11px]">
-                  <div className="flex justify-between border-b border-slate-800/80 pb-1.5">
-                    <span className="text-slate-500">Event Time:</span>
-                    <span className="text-slate-300">{rec?.event_time || '—'}</span>
+                  <div className="flex justify-between border-b border-[rgba(168,85,247,0.12)] pb-1.5">
+                    <span className="text-[#A1A1B5]">Event Time:</span>
+                    <span className="text-[#F8F7FF]">{rec?.event_time || '—'}</span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-800/80 pb-1.5">
-                    <span className="text-slate-500">Available At:</span>
-                    <span className="text-blue-300">{rec?.available_at || '—'}</span>
+                  <div className="flex justify-between border-b border-[rgba(168,85,247,0.12)] pb-1.5">
+                    <span className="text-[#A1A1B5]">Available At:</span>
+                    <span className="text-[#D8B4FE]">{rec?.available_at || '—'}</span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-800/80 pb-1.5">
-                    <span className="text-slate-500">Initial Run ID:</span>
-                    <span className="text-slate-300">{rec?.initial_run_id}</span>
+                  <div className="flex justify-between border-b border-[rgba(168,85,247,0.12)] pb-1.5">
+                    <span className="text-[#A1A1B5]">Initial Run ID:</span>
+                    <span className="text-[#F8F7FF]">{rec?.initial_run_id}</span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-800/80 pb-1.5">
-                    <span className="text-slate-500">Latest Run ID:</span>
-                    <span className="text-slate-300">{rec?.latest_run_id}</span>
+                  <div className="flex justify-between border-b border-[rgba(168,85,247,0.12)] pb-1.5">
+                    <span className="text-[#A1A1B5]">Latest Run ID:</span>
+                    <span className="text-[#F8F7FF]">{rec?.latest_run_id}</span>
                   </div>
                 </div>
               </div>
@@ -182,30 +182,30 @@ export default function RecordDetailModal({ isOpen, onClose, historyId, onOpenCo
 
               {/* Lifecycle Event Trail Timeline */}
               <div className="space-y-3">
-                <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
-                  <Layers className="w-3.5 h-3.5 text-blue-400" />
+                <span className="text-xs font-semibold text-[#D8B4FE] uppercase tracking-wider flex items-center space-x-1.5">
+                  <Layers className="w-3.5 h-3.5 text-[#8B5CF6]" />
                   <span>Processing Lifecycle Timeline</span>
                 </span>
 
                 {detail?.events && detail.events.length > 0 ? (
-                  <div className="space-y-2 border-l-2 border-slate-800 ml-2 pl-4 py-1">
+                  <div className="space-y-2 border-l-2 border-[#8B5CF6]/30 ml-2 pl-4 py-1">
                     {detail.events.map((evt, idx) => (
                       <div key={evt.event_id || idx} className="relative group">
-                        <div className="absolute -left-[23px] top-1 w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-[#0f172a]"></div>
-                        <div className="p-2.5 rounded-lg bg-[#0a0f1d] border border-slate-800 text-xs">
-                          <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
-                            <span className="font-semibold text-slate-200 capitalize">
+                        <div className="absolute -left-[23px] top-1 w-2.5 h-2.5 rounded-full bg-[#8B5CF6] ring-4 ring-[#16112B]"></div>
+                        <div className="p-2.5 rounded-lg bg-[#16112B] border border-[rgba(168,85,247,0.18)] text-xs">
+                          <div className="flex items-center justify-between text-[11px] text-[#A1A1B5] mb-1">
+                            <span className="font-semibold text-[#F8F7FF] capitalize">
                               {evt.event_type?.replace(/_/g, ' ')}
                             </span>
-                            <span className="font-mono text-slate-500">{evt.created_at}</span>
+                            <span className="font-mono text-[#A1A1B5]">{evt.created_at}</span>
                           </div>
-                          <p className="text-slate-300 text-[11px] leading-relaxed">{evt.message}</p>
+                          <p className="text-[#F8F7FF] text-[11px] leading-relaxed">{evt.message}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="p-3 rounded-lg bg-[#0a0f1d] border border-slate-800 text-xs text-slate-500">
+                  <div className="p-3 rounded-lg bg-[#16112B] border border-[rgba(168,85,247,0.18)] text-xs text-[#A1A1B5]">
                     No individual lifecycle events recorded for this record.
                   </div>
                 )}
@@ -213,11 +213,11 @@ export default function RecordDetailModal({ isOpen, onClose, historyId, onOpenCo
 
               {/* Original Raw Payload */}
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center space-x-1.5">
-                  <FileText className="w-3.5 h-3.5 text-slate-500" />
+                <span className="text-xs font-semibold text-[#A1A1B5] uppercase tracking-wider flex items-center space-x-1.5">
+                  <FileText className="w-3.5 h-3.5 text-[#8B5CF6]" />
                   <span>Original Raw Input Payload</span>
                 </span>
-                <div className="p-3 rounded-xl bg-[#070b14] border border-slate-800 font-mono text-xs text-slate-300 max-h-44 overflow-y-auto">
+                <div className="p-3 rounded-xl bg-[#10101F] border border-[rgba(168,85,247,0.18)] font-mono text-xs text-[#F8F7FF] max-h-44 overflow-y-auto shadow-inner">
                   <pre className="whitespace-pre-wrap">{detail?.original_payload}</pre>
                 </div>
               </div>
@@ -226,10 +226,10 @@ export default function RecordDetailModal({ isOpen, onClose, historyId, onOpenCo
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-800 bg-[#0a0f1d] flex items-center justify-between">
+        <div className="p-4 border-t border-[rgba(168,85,247,0.18)] bg-[#10101F] flex items-center justify-between">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+            className="px-4 py-2 rounded-lg text-xs font-medium text-[#A1A1B5] hover:text-[#F8F7FF] hover:bg-[#211936] transition-colors"
           >
             Close
           </button>
@@ -255,7 +255,7 @@ export default function RecordDetailModal({ isOpen, onClose, historyId, onOpenCo
                   });
                 }
               }}
-              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium flex items-center space-x-1.5 transition-colors shadow-md shadow-blue-600/20"
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#8B5CF6] to-[#A855F7] hover:opacity-95 text-white text-xs font-semibold flex items-center space-x-1.5 transition-opacity shadow-lg shadow-[#8B5CF6]/25"
             >
               <Wrench className="w-3.5 h-3.5" />
               <span>Review & Fix Record</span>
@@ -266,3 +266,4 @@ export default function RecordDetailModal({ isOpen, onClose, historyId, onOpenCo
     </div>
   );
 }
+

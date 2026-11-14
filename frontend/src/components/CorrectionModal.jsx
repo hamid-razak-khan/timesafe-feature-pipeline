@@ -135,36 +135,36 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#0f172a] border border-slate-700/80 rounded-2xl w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-[#16112B] border border-[rgba(168,85,247,0.25)] rounded-2xl w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl shadow-[#8B5CF6]/10 overflow-hidden">
         {/* Header */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-[#0a0f1d]">
+        <div className="p-5 border-b border-[rgba(168,85,247,0.18)] flex items-center justify-between bg-[#10101F]">
           <div className="flex items-center space-x-3">
             <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="text-base font-bold text-slate-100">Review & Fix Quarantined Record</h3>
-                <span className="text-[11px] font-mono bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded">
+                <h3 className="text-base font-bold text-[#F8F7FF]">Review & Fix Quarantined Record</h3>
+                <span className="text-[11px] font-mono bg-[#211936] border border-[rgba(168,85,247,0.25)] text-[#D8B4FE] px-2 py-0.5 rounded">
                   {rejectRecord.reject_id}
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Source: <span className="text-slate-300">{rejectRecord.source_file}</span> (Row {rejectRecord.source_row_number})
+              <p className="text-xs text-[#A1A1B5] mt-0.5">
+                Source: <span className="text-[#F8F7FF]">{rejectRecord.source_file}</span> (Row {rejectRecord.source_row_number})
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-[#A1A1B5] hover:text-[#F8F7FF] hover:bg-[#211936] transition-colors border border-transparent hover:border-[rgba(168,85,247,0.2)]"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Scrollable Body */}
-        <div className="p-6 space-y-6 overflow-y-auto flex-1">
+        <div className="p-6 space-y-6 overflow-y-auto flex-1 bg-[#080811]">
           {/* Rejection Diagnostic Banner */}
           <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 space-y-1.5">
             <div className="flex items-center space-x-2">
@@ -183,18 +183,18 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
             {/* Left: Original Read-Only Payload */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center space-x-1.5">
-                  <FileCode2 className="w-3.5 h-3.5 text-slate-500" />
+                <span className="text-xs font-semibold text-[#A1A1B5] uppercase tracking-wider flex items-center space-x-1.5">
+                  <FileCode2 className="w-3.5 h-3.5 text-[#8B5CF6]" />
                   <span>Original Raw Input</span>
                 </span>
-                <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700 font-mono">
+                <span className="text-[10px] bg-[#211936] text-[#A1A1B5] px-2 py-0.5 rounded border border-[rgba(168,85,247,0.2)] font-mono">
                   Immutable
                 </span>
               </div>
-              <div className="p-3.5 rounded-xl bg-[#070b14] border border-slate-800 font-mono text-xs text-slate-300 max-h-60 overflow-y-auto leading-relaxed">
+              <div className="p-3.5 rounded-xl bg-[#10101F] border border-[rgba(168,85,247,0.18)] font-mono text-xs text-[#F8F7FF] max-h-60 overflow-y-auto leading-relaxed shadow-inner">
                 <pre className="whitespace-pre-wrap">{JSON.stringify(parsedRaw, null, 2)}</pre>
               </div>
-              <p className="text-[11px] text-slate-500 leading-normal">
+              <p className="text-[11px] text-[#A1A1B5] leading-normal">
                 Original raw records are permanently preserved in the quarantine audit log.
               </p>
             </div>
@@ -202,11 +202,11 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
             {/* Right: Editable Form */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider flex items-center space-x-1.5">
-                  <RefreshCw className="w-3.5 h-3.5 text-blue-400" />
+                <span className="text-xs font-semibold text-[#D8B4FE] uppercase tracking-wider flex items-center space-x-1.5">
+                  <RefreshCw className="w-3.5 h-3.5 text-[#8B5CF6]" />
                   <span>Corrected Values</span>
                 </span>
-                <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20">
+                <span className="text-[10px] bg-[#8B5CF6]/15 text-[#D8B4FE] px-2 py-0.5 rounded border border-[#8B5CF6]/30">
                   Editable
                 </span>
               </div>
@@ -214,7 +214,7 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
               <div className="space-y-3">
                 {/* Customer ID */}
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  <label className="block text-[11px] font-medium text-[#A1A1B5] mb-1">
                     Entity / Customer ID *
                   </label>
                   <input
@@ -222,10 +222,10 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
                     name="customer_id"
                     value={formData.customer_id}
                     onChange={handleChange}
-                    className={`w-full bg-[#070b14] border rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none transition-colors ${
+                    className={`w-full bg-[#10101F] border rounded-lg px-3 py-1.5 text-xs text-[#F8F7FF] focus:outline-none transition-colors ${
                       validationResult?.errors?.entity_id
                         ? 'border-rose-500/70 focus:border-rose-500'
-                        : 'border-slate-800 focus:border-blue-500'
+                        : 'border-[rgba(168,85,247,0.22)] focus:border-[#8B5CF6]'
                     }`}
                     placeholder="e.g. CUST_001"
                   />
@@ -236,7 +236,7 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
 
                 {/* Transaction ID */}
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  <label className="block text-[11px] font-medium text-[#A1A1B5] mb-1">
                     Record / Transaction ID *
                   </label>
                   <input
@@ -244,10 +244,10 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
                     name="transaction_id"
                     value={formData.transaction_id}
                     onChange={handleChange}
-                    className={`w-full bg-[#070b14] border rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none transition-colors ${
+                    className={`w-full bg-[#10101F] border rounded-lg px-3 py-1.5 text-xs text-[#F8F7FF] focus:outline-none transition-colors ${
                       validationResult?.errors?.transaction_id
                         ? 'border-rose-500/70 focus:border-rose-500'
-                        : 'border-slate-800 focus:border-blue-500'
+                        : 'border-[rgba(168,85,247,0.22)] focus:border-[#8B5CF6]'
                     }`}
                     placeholder="e.g. TX_1002"
                   />
@@ -258,7 +258,7 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
 
                 {/* Amount */}
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  <label className="block text-[11px] font-medium text-[#A1A1B5] mb-1">
                     Amount (Positive Decimal) *
                   </label>
                   <input
@@ -267,10 +267,10 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
                     name="amount"
                     value={formData.amount}
                     onChange={handleChange}
-                    className={`w-full bg-[#070b14] border rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none transition-colors ${
+                    className={`w-full bg-[#10101F] border rounded-lg px-3 py-1.5 text-xs text-[#F8F7FF] focus:outline-none transition-colors ${
                       validationResult?.errors?.amount
                         ? 'border-rose-500/70 focus:border-rose-500'
-                        : 'border-slate-800 focus:border-blue-500'
+                        : 'border-[rgba(168,85,247,0.22)] focus:border-[#8B5CF6]'
                     }`}
                     placeholder="e.g. 85.50"
                   />
@@ -281,7 +281,7 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
 
                 {/* Event Time */}
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  <label className="block text-[11px] font-medium text-[#A1A1B5] mb-1">
                     Event Time (ISO-8601 UTC) *
                   </label>
                   <input
@@ -289,10 +289,10 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
                     name="event_time"
                     value={formData.event_time}
                     onChange={handleChange}
-                    className={`w-full bg-[#070b14] border rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none transition-colors ${
+                    className={`w-full bg-[#10101F] border rounded-lg px-3 py-1.5 text-xs text-[#F8F7FF] font-mono focus:outline-none transition-colors ${
                       validationResult?.errors?.event_time
                         ? 'border-rose-500/70 focus:border-rose-500'
-                        : 'border-slate-800 focus:border-blue-500'
+                        : 'border-[rgba(168,85,247,0.22)] focus:border-[#8B5CF6]'
                     }`}
                     placeholder="2026-03-01T14:30:00Z"
                   />
@@ -303,7 +303,7 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
 
                 {/* Available At */}
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  <label className="block text-[11px] font-medium text-[#A1A1B5] mb-1">
                     Available At (Optional / Defaults to Event Time)
                   </label>
                   <input
@@ -311,10 +311,10 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
                     name="available_at"
                     value={formData.available_at}
                     onChange={handleChange}
-                    className={`w-full bg-[#070b14] border rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none transition-colors ${
+                    className={`w-full bg-[#10101F] border rounded-lg px-3 py-1.5 text-xs text-[#F8F7FF] font-mono focus:outline-none transition-colors ${
                       validationResult?.errors?.available_at
                         ? 'border-rose-500/70 focus:border-rose-500'
-                        : 'border-slate-800 focus:border-blue-500'
+                        : 'border-[rgba(168,85,247,0.22)] focus:border-[#8B5CF6]'
                     }`}
                     placeholder="2026-03-01T14:35:00Z"
                   />
@@ -325,14 +325,14 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
 
                 {/* Transaction Type */}
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  <label className="block text-[11px] font-medium text-[#A1A1B5] mb-1">
                     Transaction Type
                   </label>
                   <select
                     name="transaction_type"
                     value={formData.transaction_type}
                     onChange={handleChange}
-                    className="w-full bg-[#070b14] border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:border-blue-500 focus:outline-none"
+                    className="w-full bg-[#10101F] border border-[rgba(168,85,247,0.22)] rounded-lg px-3 py-1.5 text-xs text-[#F8F7FF] focus:border-[#8B5CF6] focus:outline-none"
                   >
                     <option value="purchase">purchase</option>
                     <option value="refund">refund</option>
@@ -343,7 +343,7 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
 
                 {/* Reason for Correction */}
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  <label className="block text-[11px] font-medium text-[#A1A1B5] mb-1">
                     Correction Reason / Note (Audit Log)
                   </label>
                   <input
@@ -351,7 +351,7 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
                     name="correction_reason"
                     value={formData.correction_reason}
                     onChange={handleChange}
-                    className="w-full bg-[#070b14] border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:border-blue-500 focus:outline-none"
+                    className="w-full bg-[#10101F] border border-[rgba(168,85,247,0.22)] rounded-lg px-3 py-1.5 text-xs text-[#F8F7FF] focus:border-[#8B5CF6] focus:outline-none"
                     placeholder="e.g. Corrected negative sign and clarified timestamp"
                   />
                 </div>
@@ -360,7 +360,7 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
           </div>
 
           {/* Validation Feedback Strip */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-xl bg-[#211936] border border-[rgba(168,85,247,0.2)]">
             <div className="flex items-center space-x-2 text-xs">
               {validationResult ? (
                 validationResult.is_valid ? (
@@ -380,8 +380,8 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
                 )
               ) : (
                 <>
-                  <Info className="w-4 h-4 text-blue-400 shrink-0" />
-                  <span className="text-slate-400">Click Validate Again to run rule checks.</span>
+                  <Info className="w-4 h-4 text-[#8B5CF6] shrink-0" />
+                  <span className="text-[#A1A1B5]">Click Validate Again to run rule checks.</span>
                 </>
               )}
             </div>
@@ -389,21 +389,21 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
             <button
               onClick={handleValidate}
               disabled={isValidating}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium flex items-center space-x-1.5 transition-colors disabled:opacity-50"
+              className="px-3 py-1.5 rounded-lg bg-[#16112B] hover:bg-[#2c2247] text-[#F8F7FF] border border-[rgba(168,85,247,0.25)] text-xs font-medium flex items-center space-x-1.5 transition-colors disabled:opacity-50"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isValidating ? 'animate-spin text-blue-400' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isValidating ? 'animate-spin text-[#8B5CF6]' : ''}`} />
               <span>Validate Again</span>
             </button>
           </div>
 
           {/* Anti-Leakage Guarantee Notice */}
-          <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-slate-300 flex items-start space-x-2.5">
-            <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+          <div className="p-3.5 rounded-xl bg-[#8B5CF6]/10 border border-[#8B5CF6]/25 text-xs text-[#F8F7FF] flex items-start space-x-2.5">
+            <ShieldCheck className="w-4 h-4 text-[#8B5CF6] shrink-0 mt-0.5" />
             <div className="space-y-0.5">
-              <span className="font-semibold text-blue-300">Point-in-Time Anti-Leakage Guarantee:</span>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
+              <span className="font-semibold text-[#D8B4FE]">Point-in-Time Anti-Leakage Guarantee:</span>
+              <p className="text-[11px] text-[#A1A1B5] leading-relaxed">
                 Reprocessing sets{' '}
-                <span className="font-mono text-blue-300">effective_available_at = max(available_at, current_utc_time)</span>.
+                <span className="font-mono text-[#D8B4FE]">effective_available_at = max(available_at, current_utc_time)</span>.
                 This ensures that past feature snapshots remain strictly reproducible and never retroactively leak newly corrected data.
               </p>
             </div>
@@ -426,10 +426,10 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-800 bg-[#0a0f1d] flex items-center justify-between">
+        <div className="p-4 border-t border-[rgba(168,85,247,0.18)] bg-[#10101F] flex items-center justify-between">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+            className="px-4 py-2 rounded-lg text-xs font-medium text-[#A1A1B5] hover:text-[#F8F7FF] hover:bg-[#211936] transition-colors"
           >
             Cancel
           </button>
@@ -438,7 +438,7 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
             <button
               onClick={handleSaveDraft}
               disabled={isSavingDraft || isReprocessing}
-              className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium flex items-center space-x-1.5 transition-colors disabled:opacity-50"
+              className="px-3.5 py-2 rounded-lg bg-[#211936] hover:bg-[#2c2247] text-[#F8F7FF] border border-[rgba(168,85,247,0.25)] text-xs font-medium flex items-center space-x-1.5 transition-colors disabled:opacity-50"
             >
               <Save className="w-3.5 h-3.5" />
               <span>{isSavingDraft ? 'Saving Draft...' : 'Save Draft'}</span>
@@ -447,7 +447,7 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
             <button
               onClick={handleReprocess}
               disabled={isReprocessing || !validationResult?.is_valid}
-              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium flex items-center space-x-1.5 transition-colors disabled:opacity-50 shadow-md shadow-blue-600/20"
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#8B5CF6] to-[#A855F7] hover:opacity-95 text-white text-xs font-semibold flex items-center space-x-1.5 transition-opacity disabled:opacity-50 shadow-lg shadow-[#8B5CF6]/25"
             >
               {isReprocessing ? (
                 <>
@@ -467,3 +467,4 @@ export default function CorrectionModal({ isOpen, onClose, rejectRecord, onRepro
     </div>
   );
 }
+

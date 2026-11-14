@@ -41,13 +41,13 @@ export default function QualityChart({ runs = [], rejects = [] }) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  const COLORS = ['#f43f5e', '#f59e0b', '#3b82f6', '#8b5cf6', '#06b6d4'];
+  const COLORS = ['#f43f5e', '#f59e0b', '#8B5CF6', '#A855F7', '#D8B4FE'];
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-[#0a0f1d] border border-slate-700 p-2.5 rounded-lg shadow-lg text-xs">
-          <p className="font-semibold text-slate-200 mb-1">{label}</p>
+        <div className="bg-[#10101F] border border-[rgba(168,85,247,0.3)] p-2.5 rounded-lg shadow-xl text-xs">
+          <p className="font-semibold text-[#F8F7FF] mb-1">{label}</p>
           {payload.map((entry, index) => (
             <p key={index} style={{ color: entry.color }} className="flex justify-between space-x-4">
               <span>{entry.name}:</span>
@@ -63,23 +63,23 @@ export default function QualityChart({ runs = [], rejects = [] }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Chart 1: Row Classification Across Recent Runs */}
-      <div className="bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-sm">
-        <h4 className="text-xs font-semibold text-slate-200 uppercase tracking-wider mb-1">
+      <div className="bg-[#16112B] border border-[rgba(168,85,247,0.18)] rounded-xl p-5 shadow-sm">
+        <h4 className="text-xs font-semibold text-[#F8F7FF] uppercase tracking-wider mb-1">
           Accepted vs Rejected Rows (Recent Runs)
         </h4>
-        <p className="text-[11px] text-slate-500 mb-4">Reconciliation classification verification</p>
+        <p className="text-[11px] text-[#A1A1B5] mb-4">Reconciliation classification verification</p>
 
         <div className="h-64 w-full">
           {runComparisonData.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-xs text-slate-500">
+            <div className="h-full flex items-center justify-center text-xs text-[#A1A1B5]">
               No pipeline run data available
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={runComparisonData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} />
-                <YAxis stroke="#64748b" fontSize={10} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(168,85,247,0.1)" />
+                <XAxis dataKey="name" stroke="#A1A1B5" fontSize={10} tickLine={false} />
+                <YAxis stroke="#A1A1B5" fontSize={10} tickLine={false} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
                 <Bar dataKey="accepted" name="Accepted Rows" fill="#10b981" radius={[4, 4, 0, 0]} />
@@ -91,26 +91,26 @@ export default function QualityChart({ runs = [], rejects = [] }) {
       </div>
 
       {/* Chart 2: Top Rejection Reasons Distribution */}
-      <div className="bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-sm">
-        <h4 className="text-xs font-semibold text-slate-200 uppercase tracking-wider mb-1">
+      <div className="bg-[#16112B] border border-[rgba(168,85,247,0.18)] rounded-xl p-5 shadow-sm">
+        <h4 className="text-xs font-semibold text-[#F8F7FF] uppercase tracking-wider mb-1">
           Top Quarantined Rejection Reasons
         </h4>
-        <p className="text-[11px] text-slate-500 mb-4">Breakdown of schema and referential integrity anomalies</p>
+        <p className="text-[11px] text-[#A1A1B5] mb-4">Breakdown of schema and referential integrity anomalies</p>
 
         <div className="h-64 w-full">
           {reasonData.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-xs text-slate-500">
+            <div className="h-full flex items-center justify-center text-xs text-[#A1A1B5]">
               No rejected records recorded (100% clean data)
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart layout="vertical" data={reasonData} margin={{ left: 20, right: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis type="number" stroke="#64748b" fontSize={10} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(168,85,247,0.1)" />
+                <XAxis type="number" stroke="#A1A1B5" fontSize={10} tickLine={false} />
                 <YAxis
                   dataKey="reason"
                   type="category"
-                  stroke="#94a3b8"
+                  stroke="#A1A1B5"
                   fontSize={10}
                   tickLine={false}
                   width={140}

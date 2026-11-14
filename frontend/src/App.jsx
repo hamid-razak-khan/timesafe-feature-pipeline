@@ -46,8 +46,15 @@ export default function App() {
     setLatestSummary(summary);
   };
 
+  const handleNavigate = (page, mode = 'upload') => {
+    if (page === 'wizard') {
+      setWizardMode(mode);
+    }
+    setActivePage(page);
+  };
+
   return (
-    <div className="min-h-screen bg-[#0a0f1d] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-[#080811] text-[#F8F7FF] flex flex-col font-sans selection:bg-[#8B5CF6] selection:text-white">
       {/* Primary Simplified Navbar */}
       <Navbar
         activePage={activePage}
@@ -60,15 +67,15 @@ export default function App() {
       <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-6">
         {activePage === 'dashboard' && (
           <Dashboard
-            onNavigate={setActivePage}
+            onNavigate={handleNavigate}
             onOpenAdvanced={() => setIsAdvancedOpen(true)}
           />
         )}
 
         {activePage === 'home' && (
-          <Home
-            onStartUpload={handleStartUpload}
-            onStartSample={handleStartSample}
+          <Dashboard
+            onNavigate={handleNavigate}
+            onOpenAdvanced={() => setIsAdvancedOpen(true)}
           />
         )}
 
@@ -102,10 +109,13 @@ export default function App() {
       />
 
       {/* Minimal Footer */}
-      <footer className="border-t border-slate-900 bg-[#070b14] py-4 px-6 text-center text-xs text-slate-500">
+      <footer className="border-t border-[rgba(168,85,247,0.18)] bg-[#10101F] py-4 px-6 text-center text-xs text-[#A1A1B5]">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>TimeSafe — Point-in-Time ML Feature Store (Dual-Timestamp Anti-Leakage Engine)</span>
-          <span className="font-mono text-[11px] text-slate-600">event_time &lt; T &nbsp;|&nbsp; available_at &le; T</span>
+          <span className="flex items-center space-x-2">
+            <span className="w-2 h-2 rounded-full bg-[#A855F7] animate-pulse"></span>
+            <span>TimeSafe — Point-in-Time ML Feature Store (Dual-Timestamp Anti-Leakage Engine)</span>
+          </span>
+          <span className="font-mono text-[11px] text-[#A1A1B5]/80">event_time &lt; T &nbsp;|&nbsp; available_at &le; T</span>
         </div>
       </footer>
     </div>

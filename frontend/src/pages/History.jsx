@@ -148,27 +148,27 @@ export default function History({ onOpenAdvanced }) {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-[rgba(168,85,247,0.18)]">
         <div>
           <div className="flex items-center space-x-2">
-            <h2 className="text-2xl font-extrabold text-slate-100 tracking-tight">History & Audits</h2>
-            <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-400">
+            <h2 className="text-2xl font-extrabold text-[#F8F7FF] tracking-tight">History & Audits</h2>
+            <span className="text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#8B5CF6]/15 border border-[rgba(168,85,247,0.3)] text-[#D8B4FE]">
               Immutable Ledger
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-[#A1A1B5] mt-1">
             Track original source records, validation outcomes, corrections, and processing pipeline runs.
           </p>
         </div>
 
         {/* Tab Toggle Switch */}
-        <div className="flex items-center p-1 bg-[#0f172a] border border-slate-800 rounded-xl">
+        <div className="flex items-center p-1 bg-[#10101F] border border-[rgba(168,85,247,0.2)] rounded-xl">
           <button
             onClick={() => setActiveTab('records')}
             className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               activeTab === 'records'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-gradient-to-r from-[#8B5CF6] to-[#A855F7] text-white shadow-[0_0_12px_-2px_rgba(168,85,247,0.4)]'
+                : 'text-[#A1A1B5] hover:text-[#F8F7FF]'
             }`}
           >
             Record History
@@ -177,8 +177,8 @@ export default function History({ onOpenAdvanced }) {
             onClick={() => setActiveTab('runs')}
             className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               activeTab === 'runs'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-gradient-to-r from-[#8B5CF6] to-[#A855F7] text-white shadow-[0_0_12px_-2px_rgba(168,85,247,0.4)]'
+                : 'text-[#A1A1B5] hover:text-[#F8F7FF]'
             }`}
           >
             Processing History
@@ -192,16 +192,16 @@ export default function History({ onOpenAdvanced }) {
       {activeTab === 'records' && (
         <div className="space-y-4">
           {/* Filter & Action Toolbar */}
-          <div className="p-4 rounded-2xl bg-[#0f172a] border border-slate-800 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <div className="p-4 rounded-2xl bg-[#16112B] border border-[rgba(168,85,247,0.18)] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             {/* Search Bar */}
             <div className="relative flex-1 max-w-md">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-[#A1A1B5] absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search Record ID, Entity ID, or error reason..."
-                className="w-full bg-[#0a0f1d] border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-full bg-[#211936] border border-[rgba(168,85,247,0.25)] rounded-xl pl-9 pr-4 py-2 text-xs text-[#F8F7FF] placeholder-[#A1A1B5] focus:outline-none focus:border-[#A855F7] transition-colors"
               />
             </div>
 
@@ -214,7 +214,7 @@ export default function History({ onOpenAdvanced }) {
                   setSelectedFile(e.target.value);
                   setPage(1);
                 }}
-                className="bg-[#0a0f1d] border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+                className="bg-[#211936] border border-[rgba(168,85,247,0.25)] rounded-xl px-3 py-2 text-xs text-[#F8F7FF] focus:outline-none focus:border-[#A855F7]"
               >
                 <option value="all">All Datasets</option>
                 {filterOptions.source_files?.map((f) => (
@@ -229,7 +229,7 @@ export default function History({ onOpenAdvanced }) {
                   setSelectedStatus(e.target.value);
                   setPage(1);
                 }}
-                className="bg-[#0a0f1d] border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+                className="bg-[#211936] border border-[rgba(168,85,247,0.25)] rounded-xl px-3 py-2 text-xs text-[#F8F7FF] focus:outline-none focus:border-[#A855F7]"
               >
                 <option value="all">All Statuses</option>
                 <option value="accepted">Accepted</option>
@@ -245,7 +245,7 @@ export default function History({ onOpenAdvanced }) {
                   setSelectedCategory(e.target.value);
                   setPage(1);
                 }}
-                className="bg-[#0a0f1d] border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+                className="bg-[#211936] border border-[rgba(168,85,247,0.25)] rounded-xl px-3 py-2 text-xs text-[#F8F7FF] focus:outline-none focus:border-[#A855F7]"
               >
                 <option value="all">All Categories</option>
                 {filterOptions.error_categories?.map((c) => (
@@ -256,7 +256,7 @@ export default function History({ onOpenAdvanced }) {
               {/* Export CSV Button */}
               <button
                 onClick={handleExportCSV}
-                className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3.5 py-2 rounded-xl text-xs font-medium transition-colors"
+                className="flex items-center space-x-1.5 bg-[#211936] hover:bg-[#16112B] text-[#F8F7FF] border border-[rgba(168,85,247,0.3)] hover:border-[#A855F7]/50 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all"
                 title="Export filtered records as CSV"
               >
                 <Download className="w-3.5 h-3.5" />
@@ -265,20 +265,20 @@ export default function History({ onOpenAdvanced }) {
 
               <button
                 onClick={fetchRecords}
-                className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl transition-colors"
+                className="p-2 bg-[#211936] hover:bg-[#16112B] text-[#A1A1B5] hover:text-[#F8F7FF] border border-[rgba(168,85,247,0.25)] rounded-xl transition-colors"
                 title="Refresh table"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingRecords ? 'animate-spin text-blue-400' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingRecords ? 'animate-spin text-[#A855F7]' : ''}`} />
               </button>
             </div>
           </div>
 
           {/* Record History Table */}
-          <div className="rounded-2xl bg-[#0f172a] border border-slate-800 overflow-hidden shadow-sm">
+          <div className="rounded-2xl bg-[#16112B] border border-[rgba(168,85,247,0.18)] overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-800 text-[11px] text-slate-400 uppercase tracking-wider bg-[#0a0f1d]">
+                  <tr className="border-b border-[rgba(168,85,247,0.15)] text-[11px] text-[#A1A1B5] uppercase tracking-wider bg-[#10101F]/70">
                     <th className="py-3 px-4">Record ID</th>
                     <th className="py-3 px-4">Entity ID</th>
                     <th className="py-3 px-4">Source Dataset</th>
@@ -289,38 +289,38 @@ export default function History({ onOpenAdvanced }) {
                     <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60 font-sans">
+                <tbody className="divide-y divide-[rgba(168,85,247,0.1)] font-sans">
                   {isLoadingRecords ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-slate-400">
+                      <td colSpan={8} className="py-12 text-center text-[#A1A1B5]">
                         <div className="flex items-center justify-center space-x-2">
-                          <RefreshCw className="w-4 h-4 animate-spin text-blue-400" />
+                          <RefreshCw className="w-4 h-4 animate-spin text-[#A855F7]" />
                           <span>Loading records audit log...</span>
                         </div>
                       </td>
                     </tr>
                   ) : records.length > 0 ? (
                     records.map((r) => (
-                      <tr key={r.history_id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3 px-4 font-mono font-medium text-slate-200">
+                      <tr key={r.history_id} className="hover:bg-[#211936]/40 transition-colors">
+                        <td className="py-3 px-4 font-mono font-medium text-[#F8F7FF]">
                           {r.record_id}
                         </td>
-                        <td className="py-3 px-4 font-mono text-slate-300">
+                        <td className="py-3 px-4 font-mono text-[#D8B4FE]">
                           {r.entity_id || '—'}
                         </td>
-                        <td className="py-3 px-4 text-slate-400">
+                        <td className="py-3 px-4 text-[#A1A1B5]">
                           <span className="truncate block max-w-[140px]" title={r.source_file}>
                             {r.source_file}
                           </span>
                         </td>
-                        <td className="py-3 px-4 font-mono text-[11px] text-slate-400">
+                        <td className="py-3 px-4 font-mono text-[11px] text-[#A1A1B5]">
                           {r.event_time ? new Date(r.event_time).toLocaleDateString() : '—'}
                         </td>
-                        <td className="py-3 px-4 font-mono text-slate-200">
+                        <td className="py-3 px-4 font-mono text-[#F8F7FF]">
                           {r.amount !== null && r.amount !== undefined ? `$${Number(r.amount).toFixed(2)}` : '—'}
                         </td>
                         <td className="py-3 px-4">
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border capitalize ${getStatusBadge(r.processing_status)}`}>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border capitalize ${getStatusBadge(r.processing_status)}`}>
                             {r.processing_status}
                           </span>
                         </td>
@@ -330,12 +330,12 @@ export default function History({ onOpenAdvanced }) {
                               <span className="font-semibold text-rose-400 block truncate" title={r.rejection_reason}>
                                 {r.rejection_title}
                               </span>
-                              <span className="text-[10px] text-slate-500 font-mono truncate block">
+                              <span className="text-[10px] text-[#A1A1B5] font-mono truncate block">
                                 {r.rejection_category}
                               </span>
                             </div>
                           ) : (
-                            <span className="text-slate-500 text-[11px]">—</span>
+                            <span className="text-[#A1A1B5]/50 text-[11px]">—</span>
                           )}
                         </td>
                         <td className="py-3 px-4 text-right">
@@ -345,7 +345,7 @@ export default function History({ onOpenAdvanced }) {
                                 setSelectedDetailId(r.history_id);
                                 setIsDetailOpen(true);
                               }}
-                              className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-slate-100 text-[11px] font-medium border border-slate-700 transition-colors"
+                              className="px-2.5 py-1 rounded-xl bg-[#211936] hover:bg-[#16112B] text-[#F8F7FF] text-[11px] font-semibold border border-[rgba(168,85,247,0.25)] transition-all"
                               title="View complete record lifecycle and audit events"
                             >
                               Lifecycle
@@ -370,10 +370,10 @@ export default function History({ onOpenAdvanced }) {
                                   });
                                   setIsCorrectionOpen(true);
                                 }}
-                                className="px-2.5 py-1 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-blue-300 border border-blue-500/30 text-[11px] font-medium transition-colors flex items-center space-x-1"
+                                className="px-2.5 py-1 rounded-xl bg-[#8B5CF6]/20 hover:bg-[#8B5CF6]/30 text-[#D8B4FE] border border-[rgba(168,85,247,0.4)] text-[11px] font-semibold transition-all flex items-center space-x-1"
                                 title="Review and correct this quarantined record"
                               >
-                                <Wrench className="w-3 h-3" />
+                                <Wrench className="w-3 h-3 text-[#A855F7]" />
                                 <span>Fix</span>
                               </button>
                             )}
@@ -383,7 +383,7 @@ export default function History({ onOpenAdvanced }) {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-slate-500">
+                      <td colSpan={8} className="py-12 text-center text-[#A1A1B5]">
                         No records match the current filter criteria.
                       </td>
                     </tr>
@@ -393,28 +393,28 @@ export default function History({ onOpenAdvanced }) {
             </div>
 
             {/* Pagination Controls */}
-            <div className="p-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#0a0f1d] text-xs text-slate-400">
+            <div className="p-4 border-t border-[rgba(168,85,247,0.18)] flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#10101F] text-xs text-[#A1A1B5]">
               <div>
-                Showing <span className="font-semibold text-slate-200">{(page - 1) * limit + 1}</span> to{' '}
-                <span className="font-semibold text-slate-200">{Math.min(page * limit, totalRecords)}</span> of{' '}
-                <span className="font-semibold text-slate-200">{totalRecords}</span> records
+                Showing <span className="font-semibold text-[#F8F7FF]">{(page - 1) * limit + 1}</span> to{' '}
+                <span className="font-semibold text-[#F8F7FF]">{Math.min(page * limit, totalRecords)}</span> of{' '}
+                <span className="font-semibold text-[#F8F7FF]">{totalRecords}</span> records
               </div>
 
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page <= 1}
-                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors disabled:opacity-40"
+                  className="px-3 py-1.5 rounded-xl bg-[#211936] hover:bg-[#16112B] text-[#F8F7FF] border border-[rgba(168,85,247,0.25)] transition-colors disabled:opacity-40"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <span className="font-mono px-2">
+                <span className="font-mono px-2 text-[#D8B4FE]">
                   Page {page} of {totalPages}
                 </span>
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page >= totalPages}
-                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors disabled:opacity-40"
+                  className="px-3 py-1.5 rounded-xl bg-[#211936] hover:bg-[#16112B] text-[#F8F7FF] border border-[rgba(168,85,247,0.25)] transition-colors disabled:opacity-40"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -430,10 +430,10 @@ export default function History({ onOpenAdvanced }) {
       {activeTab === 'runs' && (
         <div className="space-y-4">
           {/* Subtitle Banner */}
-          <div className="p-4 rounded-2xl bg-[#0f172a] border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="p-4 rounded-2xl bg-[#16112B] border border-[rgba(168,85,247,0.18)] flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
-              <h3 className="text-base font-bold text-slate-100">Processing History</h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <h3 className="text-base font-bold text-[#F8F7FF]">Processing History</h3>
+              <p className="text-xs text-[#A1A1B5] mt-0.5">
                 Track uploads, processing results, errors, and previous pipeline runs.
               </p>
             </div>
@@ -441,20 +441,20 @@ export default function History({ onOpenAdvanced }) {
             {/* Filter toolbar */}
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-3.5 h-3.5 text-[#A1A1B5] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={runSearch}
                   onChange={(e) => setRunSearch(e.target.value)}
                   placeholder="Search Run ID..."
-                  className="bg-[#0a0f1d] border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 w-48"
+                  className="bg-[#211936] border border-[rgba(168,85,247,0.25)] rounded-xl pl-8 pr-3 py-1.5 text-xs text-[#F8F7FF] placeholder-[#A1A1B5] focus:outline-none focus:border-[#A855F7] w-48"
                 />
               </div>
 
               <select
                 value={runStatusFilter}
                 onChange={(e) => setRunStatusFilter(e.target.value)}
-                className="bg-[#0a0f1d] border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+                className="bg-[#211936] border border-[rgba(168,85,247,0.25)] rounded-xl px-3 py-1.5 text-xs text-[#F8F7FF] focus:outline-none focus:border-[#A855F7]"
               >
                 <option value="all">All Statuses</option>
                 <option value="success">Success</option>
@@ -464,20 +464,20 @@ export default function History({ onOpenAdvanced }) {
 
               <button
                 onClick={fetchRuns}
-                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl transition-colors"
+                className="p-1.5 bg-[#211936] hover:bg-[#16112B] text-[#A1A1B5] hover:text-[#F8F7FF] border border-[rgba(168,85,247,0.25)] rounded-xl transition-colors"
                 title="Refresh runs"
               >
-                <RefreshCw className={`w-4 h-4 ${isLoadingRuns ? 'animate-spin text-blue-400' : ''}`} />
+                <RefreshCw className={`w-4 h-4 ${isLoadingRuns ? 'animate-spin text-[#A855F7]' : ''}`} />
               </button>
             </div>
           </div>
 
           {/* Runs Execution Table */}
-          <div className="rounded-2xl bg-[#0f172a] border border-slate-800 overflow-hidden shadow-sm">
+          <div className="rounded-2xl bg-[#16112B] border border-[rgba(168,85,247,0.18)] overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-800 text-[11px] text-slate-400 uppercase tracking-wider bg-[#0a0f1d]">
+                  <tr className="border-b border-[rgba(168,85,247,0.15)] text-[11px] text-[#A1A1B5] uppercase tracking-wider bg-[#10101F]/70">
                     <th className="py-3 px-4">Run ID & Type</th>
                     <th className="py-3 px-4">Status</th>
                     <th className="py-3 px-4">Started At</th>
@@ -490,12 +490,12 @@ export default function History({ onOpenAdvanced }) {
                     <th className="py-3 px-4 text-right">Details</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60 font-sans">
+                <tbody className="divide-y divide-[rgba(168,85,247,0.1)] font-sans">
                   {isLoadingRuns ? (
                     <tr>
-                      <td colSpan={10} className="py-12 text-center text-slate-400">
+                      <td colSpan={10} className="py-12 text-center text-[#A1A1B5]">
                         <div className="flex items-center justify-center space-x-2">
-                          <RefreshCw className="w-4 h-4 animate-spin text-blue-400" />
+                          <RefreshCw className="w-4 h-4 animate-spin text-[#A855F7]" />
                           <span>Loading processing runs...</span>
                         </div>
                       </td>
@@ -510,23 +510,23 @@ export default function History({ onOpenAdvanced }) {
                           : 'bg-rose-500/10 text-rose-400 border-rose-500/30';
 
                       return (
-                        <tr key={r.run_id} className="hover:bg-slate-800/40 transition-colors">
+                        <tr key={r.run_id} className="hover:bg-[#211936]/40 transition-colors">
                           <td className="py-3 px-4">
-                            <div className="font-semibold text-slate-200">{r.friendly_type}</div>
-                            <div className="text-[10px] font-mono text-slate-500 mt-0.5">{r.run_id}</div>
+                            <div className="font-semibold text-[#F8F7FF]">{r.friendly_type}</div>
+                            <div className="text-[10px] font-mono text-[#A1A1B5] mt-0.5">{r.run_id}</div>
                           </td>
                           <td className="py-3 px-4">
-                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${badgeColor}`}>
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${badgeColor}`}>
                               {r.status}
                             </span>
                           </td>
-                          <td className="py-3 px-4 font-mono text-[11px] text-slate-400">
+                          <td className="py-3 px-4 font-mono text-[11px] text-[#A1A1B5]">
                             {r.start_time ? new Date(r.start_time).toLocaleString() : '—'}
                           </td>
-                          <td className="py-3 px-4 font-mono text-slate-300">
+                          <td className="py-3 px-4 font-mono text-[#D8B4FE]">
                             {r.duration_seconds}s
                           </td>
-                          <td className="py-3 px-4 font-medium text-slate-200">
+                          <td className="py-3 px-4 font-medium text-[#F8F7FF]">
                             {r.input_rows?.toLocaleString() || 0}
                           </td>
                           <td className="py-3 px-4 text-emerald-400 font-medium">
@@ -536,14 +536,14 @@ export default function History({ onOpenAdvanced }) {
                             {r.rejected_rows > 0 ? (
                               <span className="text-rose-400 font-semibold">{r.rejected_rows}</span>
                             ) : (
-                              <span className="text-slate-500">0</span>
+                              <span className="text-[#A1A1B5]">0</span>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-purple-400 font-medium">
+                          <td className="py-3 px-4 text-[#D8B4FE] font-medium">
                             {r.feature_rows || 0}
                           </td>
                           <td className="py-3 px-4">
-                            <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                               {r.reconciliation_status}
                             </span>
                           </td>
@@ -552,10 +552,10 @@ export default function History({ onOpenAdvanced }) {
                               onClick={() => {
                                 if (onOpenAdvanced) onOpenAdvanced();
                               }}
-                              className="text-xs text-blue-400 hover:text-blue-300 font-medium hover:underline inline-flex items-center space-x-1"
+                              className="text-xs text-[#D8B4FE] hover:text-white font-medium hover:underline inline-flex items-center space-x-1"
                             >
                               <span>Inspect</span>
-                              <ExternalLink className="w-3 h-3" />
+                              <ExternalLink className="w-3 h-3 text-[#A855F7]" />
                             </button>
                           </td>
                         </tr>
@@ -563,7 +563,7 @@ export default function History({ onOpenAdvanced }) {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={10} className="py-12 text-center text-slate-500">
+                      <td colSpan={10} className="py-12 text-center text-[#A1A1B5]">
                         No processing pipeline runs recorded.
                       </td>
                     </tr>
@@ -609,3 +609,4 @@ export default function History({ onOpenAdvanced }) {
     </div>
   );
 }
+

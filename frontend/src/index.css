@@ -9,27 +9,56 @@
 body {
   margin: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background-color: #0a0f1d;
-  color: #f1f5f9;
+  background-color: #080811;
+  color: #F8F7FF;
+  min-height: 100vh;
 }
 
 code, pre {
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* Custom Scrollbar for Engineering Dashboards */
+/* Custom Scrollbar for Neon Purple Engineering Dashboard */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: #080811;
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #211936;
   border-radius: 3px;
+  border: 1px solid rgba(168, 85, 247, 0.2);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #8B5CF6;
+}
+
+/* Neon utilities and effects */
+.radial-purple-glow {
+  background: radial-gradient(circle at 50% 15%, rgba(168, 85, 247, 0.16) 0%, rgba(139, 92, 246, 0.05) 50%, transparent 80%);
+}
+
+.gradient-text-purple {
+  background: linear-gradient(135deg, #A855F7 0%, #C084FC 50%, #D8B4FE 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.glow-btn-primary {
+  box-shadow: 0 0 20px -3px rgba(168, 85, 247, 0.4);
+}
+
+.glow-btn-primary:hover {
+  box-shadow: 0 0 28px -2px rgba(168, 85, 247, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 

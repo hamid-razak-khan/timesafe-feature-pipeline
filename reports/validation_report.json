@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-14T12:11:20.745584+00:00",
+  "generated_at": "2026-11-14T12:49:53.081961+00:00",
   "overall_status": "PASSED",
   "total_runs_evaluated": 10,
   "counts": {
@@ -8,8 +8,8 @@
     "prediction_requests": 15,
     "feature_snapshots": 15,
     "training_labels": 15,
-    "rejected_records": 308,
-    "pipeline_runs": 80
+    "rejected_records": 342,
+    "pipeline_runs": 88
   },
   "integrity_checks": {
     "orphaned_transactions": 0,
@@ -19,6 +19,94 @@
     "uniqueness_passed": true
   },
   "run_audits": [
+    {
+      "run_id": "RUN_20261114_124952_7c62c6",
+      "run_type": "ingest_prediction_requests",
+      "status": "success",
+      "input_rows": 6,
+      "accepted_rows": 5,
+      "rejected_rows": 1,
+      "actual_quarantine_records": 1,
+      "is_reconciled": true,
+      "reconciliation_equation": "6 == 5 + 1"
+    },
+    {
+      "run_id": "RUN_20261114_124952_c729ec",
+      "run_type": "ingest_transactions",
+      "status": "success",
+      "input_rows": 23,
+      "accepted_rows": 7,
+      "rejected_rows": 16,
+      "actual_quarantine_records": 16,
+      "is_reconciled": true,
+      "reconciliation_equation": "23 == 7 + 16"
+    },
+    {
+      "run_id": "RUN_20261114_124952_7d5a55",
+      "run_type": "ingest_customers",
+      "status": "success",
+      "input_rows": 10,
+      "accepted_rows": 10,
+      "rejected_rows": 0,
+      "actual_quarantine_records": 0,
+      "is_reconciled": true,
+      "reconciliation_equation": "10 == 10 + 0"
+    },
+    {
+      "run_id": "RUN_FULL_20261114_124952_65bc6f",
+      "run_type": "full_pipeline",
+      "status": "success",
+      "input_rows": 39,
+      "accepted_rows": 22,
+      "rejected_rows": 17,
+      "actual_quarantine_records": 17,
+      "is_reconciled": true,
+      "reconciliation_equation": "39 == 22 + 17"
+    },
+    {
+      "run_id": "RUN_20261114_121244_ab99ef",
+      "run_type": "ingest_prediction_requests",
+      "status": "success",
+      "input_rows": 6,
+      "accepted_rows": 5,
+      "rejected_rows": 1,
+      "actual_quarantine_records": 1,
+      "is_reconciled": true,
+      "reconciliation_equation": "6 == 5 + 1"
+    },
+    {
+      "run_id": "RUN_20261114_121244_c50128",
+      "run_type": "ingest_transactions",
+      "status": "success",
+      "input_rows": 23,
+      "accepted_rows": 7,
+      "rejected_rows": 16,
+      "actual_quarantine_records": 16,
+      "is_reconciled": true,
+      "reconciliation_equation": "23 == 7 + 16"
+    },
+    {
+      "run_id": "RUN_20261114_121244_c43417",
+      "run_type": "ingest_customers",
+      "status": "success",
+      "input_rows": 10,
+      "accepted_rows": 10,
+      "rejected_rows": 0,
+      "actual_quarantine_records": 0,
+      "is_reconciled": true,
+      "reconciliation_equation": "10 == 10 + 0"
+    },
+    {
+      "run_id": "RUN_FULL_20261114_121244_3eb001",
+      "run_type": "full_pipeline",
+      "status": "success",
+      "input_rows": 39,
+      "accepted_rows": 22,
+      "rejected_rows": 17,
+      "actual_quarantine_records": 17,
+      "is_reconciled": true,
+      "reconciliation_equation": "39 == 22 + 17"
+    },
     {
       "run_id": "RUN_REPROC_48cca8fd36",
       "run_type": "reprocess_retry",
@@ -40,94 +128,6 @@
       "actual_quarantine_records": 1,
       "is_reconciled": true,
       "reconciliation_equation": "1 == 0 + 1"
-    },
-    {
-      "run_id": "RUN_20261114_121109_48e9ad",
-      "run_type": "ingest_prediction_requests",
-      "status": "success",
-      "input_rows": 6,
-      "accepted_rows": 5,
-      "rejected_rows": 1,
-      "actual_quarantine_records": 1,
-      "is_reconciled": true,
-      "reconciliation_equation": "6 == 5 + 1"
-    },
-    {
-      "run_id": "RUN_20261114_121109_e4dea2",
-      "run_type": "ingest_transactions",
-      "status": "success",
-      "input_rows": 23,
-      "accepted_rows": 7,
-      "rejected_rows": 16,
-      "actual_quarantine_records": 16,
-      "is_reconciled": true,
-      "reconciliation_equation": "23 == 7 + 16"
-    },
-    {
-      "run_id": "RUN_20261114_121109_20417d",
-      "run_type": "ingest_customers",
-      "status": "success",
-      "input_rows": 10,
-      "accepted_rows": 10,
-      "rejected_rows": 0,
-      "actual_quarantine_records": 0,
-      "is_reconciled": true,
-      "reconciliation_equation": "10 == 10 + 0"
-    },
-    {
-      "run_id": "RUN_FULL_20261114_121109_9bf674",
-      "run_type": "full_pipeline",
-      "status": "success",
-      "input_rows": 39,
-      "accepted_rows": 22,
-      "rejected_rows": 17,
-      "actual_quarantine_records": 17,
-      "is_reconciled": true,
-      "reconciliation_equation": "39 == 22 + 17"
-    },
-    {
-      "run_id": "RUN_REPROC_43407230b7",
-      "run_type": "reprocess_retry",
-      "status": "success",
-      "input_rows": 1,
-      "accepted_rows": 1,
-      "rejected_rows": 0,
-      "actual_quarantine_records": 0,
-      "is_reconciled": true,
-      "reconciliation_equation": "1 == 1 + 0"
-    },
-    {
-      "run_id": "RUN_641cf8d4",
-      "run_type": "ingest_transactions",
-      "status": "success",
-      "input_rows": 1,
-      "accepted_rows": 0,
-      "rejected_rows": 1,
-      "actual_quarantine_records": 1,
-      "is_reconciled": true,
-      "reconciliation_equation": "1 == 0 + 1"
-    },
-    {
-      "run_id": "RUN_20261114_120551_b639ff",
-      "run_type": "ingest_prediction_requests",
-      "status": "success",
-      "input_rows": 6,
-      "accepted_rows": 5,
-      "rejected_rows": 1,
-      "actual_quarantine_records": 1,
-      "is_reconciled": true,
-      "reconciliation_equation": "6 == 5 + 1"
-    },
-    {
-      "run_id": "RUN_20261114_120551_bef0e9",
-      "run_type": "ingest_transactions",
-      "status": "success",
-      "input_rows": 23,
-      "accepted_rows": 7,
-      "rejected_rows": 16,
-      "actual_quarantine_records": 16,
-      "is_reconciled": true,
-      "reconciliation_equation": "23 == 7 + 16"
     }
   ]
 }

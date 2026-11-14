@@ -13,24 +13,24 @@ export default function FeatureTable({ features = [], isLoading = false, onRefre
   });
 
   return (
-    <div className="bg-[#0f172a] border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+    <div className="bg-[#16112B] border border-[rgba(168,85,247,0.18)] rounded-xl overflow-hidden shadow-sm">
       {/* Table Header & Controls */}
-      <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="p-4 border-b border-[rgba(168,85,247,0.18)] bg-[#10101F] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center space-x-3">
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-[#A1A1B5] absolute left-3 top-2.5" />
             <input
               type="text"
               placeholder="Search Customer ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="bg-[#0a0f1d] border border-slate-700/80 rounded-lg pl-9 pr-4 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 w-56"
+              className="bg-[#10101F] border border-[rgba(168,85,247,0.25)] rounded-lg pl-9 pr-4 py-1.5 text-xs text-[#F8F7FF] placeholder-[#A1A1B5] focus:outline-none focus:border-[#8B5CF6] w-56"
             />
           </div>
           <select
             value={selectedVersion}
             onChange={(e) => setSelectedVersion(e.target.value)}
-            className="bg-[#0a0f1d] border border-slate-700/80 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+            className="bg-[#10101F] border border-[rgba(168,85,247,0.25)] rounded-lg px-3 py-1.5 text-xs text-[#F8F7FF] focus:outline-none focus:border-[#8B5CF6]"
           >
             <option value="all">All Versions</option>
             <option value="v1">v1</option>
@@ -42,7 +42,7 @@ export default function FeatureTable({ features = [], isLoading = false, onRefre
           <a
             href={apiClient.getExportFeaturesUrl(selectedVersion === 'all' ? 'v1' : selectedVersion)}
             download="feature_snapshots.csv"
-            className="flex items-center space-x-1.5 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+            className="flex items-center space-x-1.5 bg-[#8B5CF6]/15 hover:bg-[#8B5CF6]/25 text-[#D8B4FE] border border-[rgba(168,85,247,0.3)] px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export CSV</span>
@@ -54,7 +54,7 @@ export default function FeatureTable({ features = [], isLoading = false, onRefre
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse text-xs">
           <thead>
-            <tr className="border-b border-slate-800 bg-[#0a0f1d]/50 text-slate-400 font-medium">
+            <tr className="border-b border-[rgba(168,85,247,0.18)] bg-[#10101F]/80 text-[#A1A1B5] font-medium">
               <th className="py-3 px-4">Customer ID</th>
               <th className="py-3 px-4">As-of Cutoff (T)</th>
               <th className="py-3 px-4">Version</th>
@@ -67,36 +67,36 @@ export default function FeatureTable({ features = [], isLoading = false, onRefre
               <th className="py-3 px-4 text-right">Refund Amt 30d</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300">
+          <tbody className="divide-y divide-[rgba(168,85,247,0.1)] font-mono text-[#F8F7FF]">
             {isLoading ? (
               <tr>
-                <td colSpan="10" className="py-8 text-center text-slate-500 font-sans">
+                <td colSpan="10" className="py-8 text-center text-[#A1A1B5] font-sans">
                   Loading feature snapshots...
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan="10" className="py-8 text-center text-slate-500 font-sans">
+                <td colSpan="10" className="py-8 text-center text-[#A1A1B5] font-sans">
                   No feature snapshots found matching criteria.
                 </td>
               </tr>
             ) : (
               filtered.map((item) => (
-                <tr key={item.snapshot_id} className="hover:bg-slate-800/30 transition-colors">
-                  <td className="py-2.5 px-4 font-semibold text-blue-400 font-sans">{item.customer_id}</td>
-                  <td className="py-2.5 px-4 text-slate-400">{item.as_of_time?.replace('T', ' ').substring(0, 19)}</td>
+                <tr key={item.snapshot_id} className="hover:bg-[#211936]/40 transition-colors">
+                  <td className="py-2.5 px-4 font-semibold text-[#D8B4FE] font-sans">{item.customer_id}</td>
+                  <td className="py-2.5 px-4 text-[#A1A1B5]">{item.as_of_time?.replace('T', ' ').substring(0, 19)}</td>
                   <td className="py-2.5 px-4">
-                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 border border-slate-700 text-slate-300">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-[#211936] border border-[rgba(168,85,247,0.25)] text-[#D8B4FE]">
                       {item.feature_version}
                     </span>
                   </td>
-                  <td className="py-2.5 px-4 text-right">{item.txn_count_7d}</td>
-                  <td className="py-2.5 px-4 text-right font-semibold text-slate-200">{item.txn_count_30d}</td>
+                  <td className="py-2.5 px-4 text-right text-[#F8F7FF]">{item.txn_count_7d}</td>
+                  <td className="py-2.5 px-4 text-right font-semibold text-[#F8F7FF]">{item.txn_count_30d}</td>
                   <td className="py-2.5 px-4 text-right text-emerald-400">
                     ${Number(item.total_purchase_amount_30d).toFixed(2)}
                   </td>
-                  <td className="py-2.5 px-4 text-right">${Number(item.avg_purchase_amount_30d).toFixed(2)}</td>
-                  <td className="py-2.5 px-4 text-right text-slate-400">
+                  <td className="py-2.5 px-4 text-right text-[#F8F7FF]">${Number(item.avg_purchase_amount_30d).toFixed(2)}</td>
+                  <td className="py-2.5 px-4 text-right text-[#A1A1B5]">
                     {item.days_since_last_txn !== null ? `${Number(item.days_since_last_txn).toFixed(1)}d` : '—'}
                   </td>
                   <td className="py-2.5 px-4 text-right text-rose-400">{item.refund_count_30d}</td>
@@ -110,9 +110,9 @@ export default function FeatureTable({ features = [], isLoading = false, onRefre
         </table>
       </div>
 
-      <div className="p-3 border-t border-slate-800 bg-[#0a0f1d]/30 text-slate-500 text-[11px] flex items-center justify-between">
+      <div className="p-3 border-t border-[rgba(168,85,247,0.18)] bg-[#10101F]/60 text-[#A1A1B5] text-[11px] flex items-center justify-between">
         <span>Showing {filtered.length} of {features.length} feature records</span>
-        <span>Point-in-Time Rule: event_time &lt; T AND available_at &le; T</span>
+        <span className="font-mono text-[#D8B4FE]">Point-in-Time Rule: event_time &lt; T AND available_at &le; T</span>
       </div>
     </div>
   );

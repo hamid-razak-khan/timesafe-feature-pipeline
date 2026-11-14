@@ -53,10 +53,10 @@ export default function PipelineRuns() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-[rgba(168,85,247,0.18)]">
         <div>
-          <h2 className="text-xl font-bold text-slate-100 tracking-tight">Pipeline Execution Telemetry & Runs</h2>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <h2 className="text-xl font-bold text-[#F8F7FF] tracking-tight">Pipeline Execution Telemetry & Runs</h2>
+          <p className="text-xs text-[#A1A1B5] mt-0.5">
             Operational run history, execution durations, row accounting, and reconciliation audit evidence
           </p>
         </div>
@@ -64,16 +64,16 @@ export default function PipelineRuns() {
         <div className="flex items-center space-x-3">
           <button
             onClick={loadData}
-            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
+            className="p-2 rounded-lg bg-[#211936] hover:bg-[#2c2247] text-[#F8F7FF] border border-[rgba(168,85,247,0.25)] transition-colors"
             title="Refresh runs"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-400' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-[#8B5CF6]' : ''}`} />
           </button>
 
           <button
             onClick={handleTrigger}
             disabled={isTriggering}
-            className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-4 rounded-lg text-xs transition-colors disabled:opacity-50 shadow-sm"
+            className="flex items-center space-x-2 bg-gradient-to-r from-[#8B5CF6] to-[#A855F7] hover:opacity-95 text-white font-medium py-2 px-4 rounded-lg text-xs transition-opacity disabled:opacity-50 shadow-lg shadow-[#8B5CF6]/25"
           >
             {isTriggering ? (
               <>
@@ -109,11 +109,11 @@ export default function PipelineRuns() {
 
       {/* Reconciliation Audit Summary Banner */}
       {reconReport && (
-        <div className="bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-sm">
+        <div className="bg-[#16112B] border border-[rgba(168,85,247,0.18)] rounded-xl p-5 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-2.5">
               <ShieldCheck className="w-5 h-5 text-emerald-400" />
-              <h3 className="text-sm font-semibold text-slate-100">Live Mathematical Reconciliation Report</h3>
+              <h3 className="text-sm font-semibold text-[#F8F7FF]">Live Mathematical Reconciliation Report</h3>
             </div>
             <span
               className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
@@ -126,28 +126,28 @@ export default function PipelineRuns() {
             </span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs mt-3 pt-3 border-t border-slate-800/80">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs mt-3 pt-3 border-t border-[rgba(168,85,247,0.15)]">
             <div>
-              <span className="text-slate-400">Referential Integrity:</span>
+              <span className="text-[#A1A1B5]">Referential Integrity:</span>
               <p className="font-semibold text-emerald-400 mt-0.5">
                 {reconReport.integrity_checks?.referential_integrity_passed ? '0 Orphaned Keys' : 'Violations Detected'}
               </p>
             </div>
             <div>
-              <span className="text-slate-400">Snapshot Uniqueness:</span>
+              <span className="text-[#A1A1B5]">Snapshot Uniqueness:</span>
               <p className="font-semibold text-emerald-400 mt-0.5">
                 {reconReport.integrity_checks?.uniqueness_passed ? '0 Duplicate Tuples' : 'Duplicates Found'}
               </p>
             </div>
             <div>
-              <span className="text-slate-400">Row Accounting:</span>
-              <p className="font-semibold text-blue-400 mt-0.5">
+              <span className="text-[#A1A1B5]">Row Accounting:</span>
+              <p className="font-semibold text-[#D8B4FE] mt-0.5">
                 input = accepted + rejected
               </p>
             </div>
             <div>
-              <span className="text-slate-400">Audited Runs:</span>
-              <p className="font-semibold text-slate-200 mt-0.5">
+              <span className="text-[#A1A1B5]">Audited Runs:</span>
+              <p className="font-semibold text-[#F8F7FF] mt-0.5">
                 {reconReport.run_audits?.length ?? 0} runs verified
               </p>
             </div>
