@@ -9,12 +9,38 @@ import AdvancedModal from './components/AdvancedModal';
 import apiClient from './services/api';
 
 export default function App() {
-  const [activePage, setActivePage] = useState('dashboard');
+  // Read initial page from URL hash if available (e.g. #/dashboard or #/home)
+  const getInitialPage = () => {
+    const hash = window.location.hash.replace('#/', '').replace('#', '').toLowerCase();
+    if (['home', 'dashboard', 'wizard', 'results', 'history'].includes(hash)) {
+      return hash;
+    }
+    return 'home';
+  };
+
+  const [activePage, setActivePage] = useState(getInitialPage);
   const [wizardMode, setWizardMode] = useState('upload'); // 'upload' or 'sample'
   const [latestFeatures, setLatestFeatures] = useState([]);
   const [latestSummary, setLatestSummary] = useState(null);
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [healthStatus, setHealthStatus] = useState(null);
+
+  // Sync active page with URL hash for browser refresh & direct URL access
+  useEffect(() => {
+    window.location.hash = `#/${activePage}`;
+  }, [activePage]);
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#/', '').replace('#', '').toLowerCase();
+      if (['home', 'dashboard', 'wizard', 'results', 'history'].includes(hash)) {
+        setActivePage(hash);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   const checkHealth = async () => {
     try {
@@ -65,14 +91,13 @@ export default function App() {
 
       {/* Main Content Viewport */}
       <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-6">
-        {activePage === 'dashboard' && (
-          <Dashboard
+        {activePage === 'home' && (
+          <Home
             onNavigate={handleNavigate}
-            onOpenAdvanced={() => setIsAdvancedOpen(true)}
           />
         )}
 
-        {activePage === 'home' && (
+        {activePage === 'dashboard' && (
           <Dashboard
             onNavigate={handleNavigate}
             onOpenAdvanced={() => setIsAdvancedOpen(true)}

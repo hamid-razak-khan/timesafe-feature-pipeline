@@ -158,15 +158,44 @@ class HistoryService:
 
     def get_dashboard_summary(self) -> Dict[str, Any]:
         """Aggregate high-level metrics for the executive and operational dashboard."""
-        # 1. Total records in history
-        total_hist = self.session.query(func.count(SourceRecordHistory.history_id)).scalar() or 0
+        # 1. Distinct datasets count across history, transactions, and rejects
+        distinct_files = set()
+        for row in self.session.query(SourceRecordHistory.source_file).distinct().all():
+            if row[0]:
+                distinct_files.add(row[0])
+        for row in self.session.query(Transaction.source_file).distinct().all():
+            if row[0]:
+                distinct_files.add(row[0])
+        for row in self.session.query(RejectedRecord.source_file).distinct().all():
+            if row[0]:
+                distinct_files.add(row[0])
+
         total_tx = self.session.query(func.count(Transaction.transaction_id)).scalar() or 0
         total_rej = self.session.query(func.count(RejectedRecord.reject_id)).scalar() or 0
         total_features = self.session.query(func.count(FeatureSnapshot.snapshot_id)).scalar() or 0
+        total_hist = self.session.query(func.count(SourceRecordHistory.history_id)).scalar() or 0
 
-        # Total processed is either historical audit rows or sum of tx + rej
-        total_processed = max(total_hist, total_tx + total_rej)
-        rejection_rate = round((total_rej / total_processed * 100), 1) if total_processed > 0 else 0.0
+        datasets_processed = len(distinct_files) if distinct_files else (1 if total_tx > 0 else 0)
+
+        # 2. Historical processing totals without double-counting parent full_pipeline runs
+        hist_totals = (
+            self.session.query(
+                func.sum(PipelineRun.input_rows),
+                func.sum(PipelineRun.accepted_rows),
+                func.sum(PipelineRun.rejected_rows),
+            )
+            .filter(PipelineRun.run_type != "full_pipeline")
+            .first()
+        )
+        total_hist_input = int(hist_totals[0] or 0) if hist_totals else 0
+        total_hist_accepted = int(hist_totals[1] or 0) if hist_totals else 0
+        total_hist_rejected = int(hist_totals[2] or 0) if hist_totals else 0
+
+        # Total distinct business records processed
+        distinct_records_total = total_tx + total_rej
+        total_processed = max(total_hist, distinct_records_total, total_hist_input)
+        rejection_rate = round((total_rej / distinct_records_total * 100), 1) if distinct_records_total > 0 else 0.0
+        valid_records_percent = round((total_tx / distinct_records_total * 100), 1) if distinct_records_total > 0 else 0.0
 
         # Unresolved rejects needing attention
         needs_attention = self.session.query(func.count(RejectedRecord.reject_id)).filter(
@@ -195,9 +224,10 @@ class HistoryService:
         accepted_vs_rejected = {
             "accepted": total_tx,
             "rejected": total_rej,
+            "valid_percent": valid_records_percent,
         }
 
-        # Activity timeline by day
+        # Activity timeline by day (excluding parent full_pipeline to prevent double counting)
         timeline_query = (
             self.session.query(
                 func.strftime("%Y-%m-%d", PipelineRun.start_time).label("run_date"),
@@ -205,6 +235,7 @@ class HistoryService:
                 func.sum(PipelineRun.rejected_rows).label("rejected"),
                 func.sum(PipelineRun.feature_rows).label("features"),
             )
+            .filter(PipelineRun.run_type != "full_pipeline")
             .group_by("run_date")
             .order_by("run_date")
             .limit(14)
@@ -220,7 +251,7 @@ class HistoryService:
                     "features": int(row[3] or 0),
                 })
 
-        if not activity_timeline:
+        if not activity_timeline and distinct_records_total > 0:
             today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             activity_timeline = [{
                 "date": today_str,
@@ -240,30 +271,193 @@ class HistoryService:
         for r in recent_runs_query:
             friendly_status, badge = format_run_status(r.status, r.rejected_rows)
             friendly_type = format_friendly_run_type(r.run_type)
+            source_name = (
+                "transactions.csv" if r.run_type == "ingest_transactions" else (
+                    "customers.csv" if r.run_type == "ingest_customers" else (
+                        "prediction_requests.csv" if r.run_type == "ingest_prediction_requests" else (
+                            "pipeline_batch" if r.run_type == "full_pipeline" else friendly_type
+                        )
+                    )
+                )
+            )
             recent_activity.append({
                 "run_id": r.run_id,
+                "source_file": source_name,
                 "friendly_type": friendly_type,
                 "raw_run_type": r.run_type,
                 "status": friendly_status,
                 "badge_color": badge,
                 "start_time": r.start_time.isoformat() if r.start_time else None,
                 "records_processed": r.input_rows,
+                "input_rows": r.input_rows,
                 "accepted_rows": r.accepted_rows,
                 "rejected_rows": r.rejected_rows,
+                "feature_rows": r.feature_rows,
                 "duration_seconds": round(float(r.duration_seconds or 0.0), 2),
             })
 
         return {
+            "datasets_processed": datasets_processed,
+            "valid_records": total_tx,
+            "feature_snapshots_generated": total_features,
             "total_records_processed": total_processed,
             "accepted_records": total_tx,
             "rejected_records": total_rej,
             "rejection_rate_percent": rejection_rate,
+            "valid_records_percent": valid_records_percent,
             "generated_ml_features": total_features,
             "needs_attention_count": needs_attention,
+            "total_historical_inputs": total_hist_input,
+            "total_historical_accepted": total_hist_accepted,
+            "total_historical_rejected": total_hist_rejected,
             "rejection_reasons_summary": reasons_summary,
             "accepted_vs_rejected": accepted_vs_rejected,
             "activity_timeline": activity_timeline,
             "recent_activity": recent_activity,
+        }
+
+    def get_dashboard_activity(self) -> Dict[str, Any]:
+        """Provide detailed activity timelines and per-run breakdown without double counting."""
+        # 1. Date timeline
+        timeline_query = (
+            self.session.query(
+                func.strftime("%Y-%m-%d", PipelineRun.start_time).label("run_date"),
+                func.sum(PipelineRun.accepted_rows).label("accepted"),
+                func.sum(PipelineRun.rejected_rows).label("rejected"),
+                func.sum(PipelineRun.feature_rows).label("features"),
+            )
+            .filter(PipelineRun.run_type != "full_pipeline")
+            .group_by("run_date")
+            .order_by("run_date")
+            .limit(14)
+            .all()
+        )
+        daily_timeline = []
+        for row in timeline_query:
+            if row[0]:
+                daily_timeline.append({
+                    "date": row[0],
+                    "accepted": int(row[1] or 0),
+                    "rejected": int(row[2] or 0),
+                    "features": int(row[3] or 0),
+                })
+
+        # 2. Recent execution runs activity (last 15 runs)
+        runs_query = (
+            self.session.query(PipelineRun)
+            .order_by(PipelineRun.start_time.desc())
+            .limit(15)
+            .all()
+        )
+        recent_runs = []
+        for r in runs_query:
+            friendly_status, badge = format_run_status(r.status, r.rejected_rows)
+            friendly_type = format_friendly_run_type(r.run_type)
+            st_iso = r.start_time.isoformat() if r.start_time else ""
+            display_time = st_iso.split("T")[-1][:8] if "T" in st_iso else (st_iso[-8:] if len(st_iso) >= 8 else st_iso)
+            recent_runs.append({
+                "run_id": r.run_id,
+                "short_id": r.run_id[-8:] if len(r.run_id) > 8 else r.run_id,
+                "timestamp": st_iso,
+                "display_time": display_time,
+                "run_type": friendly_type,
+                "input_rows": r.input_rows,
+                "accepted_rows": r.accepted_rows,
+                "rejected_rows": r.rejected_rows,
+                "feature_rows": r.feature_rows,
+                "status": friendly_status,
+                "badge_color": badge,
+            })
+
+        return {
+            "daily_timeline": daily_timeline,
+            "recent_runs": recent_runs,
+        }
+
+    def get_dashboard_data_quality(self) -> Dict[str, Any]:
+        """Provide detailed data quality distributions and category breakdowns."""
+        total_rej = self.session.query(func.count(RejectedRecord.reject_id)).scalar() or 0
+        needs_attention = self.session.query(func.count(RejectedRecord.reject_id)).filter(
+            or_(RejectedRecord.resolution_status == "unresolved", RejectedRecord.resolution_status == None)
+        ).scalar() or 0
+        resolved_count = max(0, total_rej - needs_attention)
+
+        # Reasons summary
+        reasons_query = (
+            self.session.query(RejectedRecord.rejection_reason, func.count(RejectedRecord.reject_id))
+            .group_by(RejectedRecord.rejection_reason)
+            .all()
+        )
+        reasons_summary = []
+        category_counts: Dict[str, int] = {}
+        for reason_code, count in reasons_query:
+            title, category, descr, guidance = map_error_to_metadata(reason_code)
+            category_counts[category] = category_counts.get(category, 0) + count
+            reasons_summary.append({
+                "code": reason_code,
+                "title": title,
+                "category": category,
+                "description": descr,
+                "guidance": guidance,
+                "count": count,
+            })
+        reasons_summary.sort(key=lambda x: x["count"], reverse=True)
+
+        colors = ["#f43f5e", "#f59e0b", "#8B5CF6", "#A855F7", "#D8B4FE", "#10b981"]
+        category_breakdown = [
+            {"category": cat, "count": cnt, "color": colors[i % len(colors)]}
+            for i, (cat, cnt) in enumerate(sorted(category_counts.items(), key=lambda x: x[1], reverse=True))
+        ]
+
+        return {
+            "total_quarantined": total_rej,
+            "unresolved_count": needs_attention,
+            "resolved_count": resolved_count,
+            "rejection_reasons_summary": reasons_summary,
+            "category_breakdown": category_breakdown,
+            "integrity_status": "PASSED" if total_rej == 0 or resolved_count == total_rej else "ATTENTION_REQUIRED",
+        }
+
+    def get_dashboard_recent_runs(self, limit: int = 10) -> Dict[str, Any]:
+        """Fetch latest pipeline execution runs with full row accounting."""
+        total_runs = self.session.query(func.count(PipelineRun.run_id)).scalar() or 0
+        runs_query = (
+            self.session.query(PipelineRun)
+            .order_by(PipelineRun.start_time.desc())
+            .limit(limit)
+            .all()
+        )
+        runs_list = []
+        for r in runs_query:
+            friendly_status, badge = format_run_status(r.status, r.rejected_rows)
+            friendly_type = format_friendly_run_type(r.run_type)
+            source_name = (
+                "transactions.csv" if r.run_type == "ingest_transactions" else (
+                    "customers.csv" if r.run_type == "ingest_customers" else (
+                        "prediction_requests.csv" if r.run_type == "ingest_prediction_requests" else (
+                            "pipeline_batch" if r.run_type == "full_pipeline" else friendly_type
+                        )
+                    )
+                )
+            )
+            runs_list.append({
+                "run_id": r.run_id,
+                "dataset_name": source_name,
+                "friendly_type": friendly_type,
+                "raw_run_type": r.run_type,
+                "status": friendly_status,
+                "badge_color": badge,
+                "start_time": r.start_time.isoformat() if r.start_time else None,
+                "input_records": r.input_rows,
+                "accepted_records": r.accepted_rows,
+                "rejected_records": r.rejected_rows,
+                "feature_records": r.feature_rows,
+                "duration_seconds": round(float(r.duration_seconds or 0.0), 2),
+            })
+
+        return {
+            "total": total_runs,
+            "runs": runs_list,
         }
 
     def get_record_history(

@@ -3,6 +3,7 @@ import { Layers, ShieldCheck, Sliders, CheckCircle2, ChevronRight, Activity } fr
 
 export default function Navbar({ activePage, setActivePage, onOpenAdvanced, healthStatus }) {
   const navItems = [
+    { id: 'home', label: 'Home' },
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'wizard', label: 'My Datasets' },
     { id: 'results', label: 'Results' },
@@ -14,7 +15,7 @@ export default function Navbar({ activePage, setActivePage, onOpenAdvanced, heal
       {/* Brand Logo & Title */}
       <div 
         className="flex items-center space-x-3 cursor-pointer group" 
-        onClick={() => setActivePage('dashboard')}
+        onClick={() => setActivePage('home')}
       >
         <div className="w-9 h-9 rounded-xl bg-[#8B5CF6]/15 border border-[rgba(168,85,247,0.3)] flex items-center justify-center text-[#A855F7] shadow-[0_0_15px_-3px_rgba(168,85,247,0.35)] group-hover:border-[#A855F7] transition-all">
           <Layers className="w-5 h-5 text-[#D8B4FE]" />

@@ -187,9 +187,35 @@ class DashboardSummaryResponse(BaseModel):
     generated_ml_features: int
     needs_attention_count: int
     rejection_reasons_summary: List[Dict[str, Any]]
-    accepted_vs_rejected: Dict[str, int]
+    accepted_vs_rejected: Dict[str, Any]
     activity_timeline: List[Dict[str, Any]]
     recent_activity: List[Dict[str, Any]]
+    datasets_processed: Optional[int] = 0
+    valid_records: Optional[int] = 0
+    feature_snapshots_generated: Optional[int] = 0
+    total_historical_inputs: Optional[int] = 0
+    total_historical_accepted: Optional[int] = 0
+    total_historical_rejected: Optional[int] = 0
+    valid_records_percent: Optional[float] = 0.0
+
+
+class DashboardActivityResponse(BaseModel):
+    daily_timeline: List[Dict[str, Any]]
+    recent_runs: List[Dict[str, Any]]
+
+
+class DashboardDataQualityResponse(BaseModel):
+    total_quarantined: int
+    unresolved_count: int
+    resolved_count: int
+    rejection_reasons_summary: List[Dict[str, Any]]
+    category_breakdown: List[Dict[str, Any]]
+    integrity_status: str
+
+
+class DashboardRecentRunsResponse(BaseModel):
+    total: int
+    runs: List[Dict[str, Any]]
 
 
 class RecordHistoryItem(BaseModel):

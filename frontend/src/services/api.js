@@ -88,9 +88,21 @@ export const apiClient = {
     return res.data;
   },
 
-  // Dashboard Summary & History Observability
+  // Dashboard Summary & Observability Endpoints
   getDashboardSummary: async () => {
     const res = await api.get('/dashboard/summary');
+    return res.data;
+  },
+  getDashboardActivity: async () => {
+    const res = await api.get('/dashboard/activity');
+    return res.data;
+  },
+  getDashboardDataQuality: async () => {
+    const res = await api.get('/dashboard/data-quality');
+    return res.data;
+  },
+  getDashboardRecentRuns: async (limit = 10) => {
+    const res = await api.get(`/dashboard/recent-runs?limit=${limit}`);
     return res.data;
   },
   getHistoryRecords: async (params = {}) => {

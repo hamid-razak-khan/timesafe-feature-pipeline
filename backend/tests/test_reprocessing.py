@@ -105,7 +105,42 @@ def test_dashboard_summary_api():
     assert "accepted_vs_rejected" in data
     assert "activity_timeline" in data
     assert "recent_activity" in data
+    assert "datasets_processed" in data
+    assert "valid_records" in data
+    assert "feature_snapshots_generated" in data
     assert isinstance(data["rejection_reasons_summary"], list)
+
+
+def test_dashboard_activity_api():
+    """Verify GET /api/dashboard/activity returns daily timeline and recent runs."""
+    response = client.get("/api/dashboard/activity")
+    assert response.status_code == 200
+    data = response.json()
+    assert "daily_timeline" in data
+    assert "recent_runs" in data
+    assert isinstance(data["daily_timeline"], list)
+    assert isinstance(data["recent_runs"], list)
+
+
+def test_dashboard_data_quality_api():
+    """Verify GET /api/dashboard/data-quality returns categorization and integrity status."""
+    response = client.get("/api/dashboard/data-quality")
+    assert response.status_code == 200
+    data = response.json()
+    assert "total_quarantined" in data
+    assert "unresolved_count" in data
+    assert "category_breakdown" in data
+    assert "integrity_status" in data
+
+
+def test_dashboard_recent_runs_api():
+    """Verify GET /api/dashboard/recent-runs returns executions with row accounting."""
+    response = client.get("/api/dashboard/recent-runs?limit=5")
+    assert response.status_code == 200
+    data = response.json()
+    assert "total" in data
+    assert "runs" in data
+    assert isinstance(data["runs"], list)
 
 
 def test_record_history_api():

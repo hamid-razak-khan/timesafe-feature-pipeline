@@ -6,9 +6,6 @@ import {
   Cpu, 
   ArrowRight, 
   RefreshCw, 
-  Play, 
-  Wrench, 
-  Clock, 
   UploadCloud, 
   FileSpreadsheet, 
   Layers, 
@@ -17,8 +14,11 @@ import {
   ExternalLink,
   ShieldCheck,
   Sparkles,
-  Zap,
-  FolderOpen
+  PieChart as PieChartIcon,
+  Wrench,
+  Clock,
+  History,
+  AlertCircle
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -30,19 +30,20 @@ import {
   Legend, 
   PieChart, 
   Pie, 
-  Cell 
+  Cell,
+  CartesianGrid
 } from 'recharts';
 import apiClient from '../services/api';
 import CorrectionModal from '../components/CorrectionModal';
 
 export default function Dashboard({ onNavigate, onOpenAdvanced }) {
   const [summary, setSummary] = useState(null);
-  const [historyRuns, setHistoryRuns] = useState([]);
+  const [activityData, setActivityData] = useState([]);
+  const [activityMode, setActivityMode] = useState('daily'); // 'daily' or 'runs'
+  const [recentRuns, setRecentRuns] = useState([]);
   const [rejects, setRejects] = useState([]);
-  const [datasetsCount, setDatasetsCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [isTriggering, setIsTriggering] = useState(false);
-  const [triggerMsg, setTriggerMsg] = useState(null);
+  const [hasError, setHasError] = useState(null);
 
   // Correction Modal State
   const [selectedReject, setSelectedReject] = useState(null);
@@ -50,23 +51,49 @@ export default function Dashboard({ onNavigate, onOpenAdvanced }) {
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
+    setHasError(null);
     try {
-      const [sumData, runsData, rejData, histData] = await Promise.all([
+      // Fetch summary, activity, and recent runs concurrently
+      const [sumData, actData, runsData, rejData] = await Promise.all([
         apiClient.getDashboardSummary(),
-        apiClient.getHistoryRuns({ limit: 6 }),
-        apiClient.getRejects({ limit: 5 }),
-        apiClient.getHistoryRecords({ limit: 1 }),
+        apiClient.getDashboardActivity().catch((err) => {
+          console.warn('Dashboard activity endpoint fallback:', err);
+          return null;
+        }),
+        apiClient.getDashboardRecentRuns(8).catch((err) => {
+          console.warn('Dashboard recent runs endpoint fallback:', err);
+          return null;
+        }),
+        apiClient.getRejects({ limit: 5 }).catch((err) => {
+          console.warn('Rejects endpoint fallback:', err);
+          return [];
+        }),
       ]);
+
       setSummary(sumData);
-      setHistoryRuns(runsData?.runs || []);
-      setRejects(rejData || []);
-      if (histData?.filter_options?.source_files) {
-        setDatasetsCount(histData.filter_options.source_files.length);
+
+      // Handle activity timeline
+      if (actData?.daily_timeline && actData.daily_timeline.length > 0) {
+        setActivityData(actData.daily_timeline);
+      } else if (sumData?.activity_timeline && sumData.activity_timeline.length > 0) {
+        setActivityData(sumData.activity_timeline);
       } else {
-        setDatasetsCount(sumData?.total_records_processed > 0 ? 3 : 0);
+        setActivityData([]);
       }
+
+      // Handle recent runs
+      if (runsData?.runs && runsData.runs.length > 0) {
+        setRecentRuns(runsData.runs);
+      } else if (sumData?.recent_activity && sumData.recent_activity.length > 0) {
+        setRecentRuns(sumData.recent_activity);
+      } else {
+        setRecentRuns([]);
+      }
+
+      setRejects(rejData || []);
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
+      setHasError(err.response?.data?.detail || err.message || 'Failed to fetch dashboard metrics from backend.');
     } finally {
       setIsLoading(false);
     }
@@ -76,30 +103,15 @@ export default function Dashboard({ onNavigate, onOpenAdvanced }) {
     fetchDashboardData();
   }, []);
 
-  const handleTriggerPipeline = async () => {
-    setIsTriggering(true);
-    setTriggerMsg(null);
-    try {
-      const res = await apiClient.triggerPipeline();
-      setTriggerMsg({
-        type: 'success',
-        text: `Pipeline completed: ${res.feature_snapshots_count} features generated in ${res.duration_seconds.toFixed(2)}s (Audit: ${res.overall_status})`,
-      });
-      fetchDashboardData();
-    } catch (err) {
-      setTriggerMsg({
-        type: 'error',
-        text: err.response?.data?.detail || 'Pipeline trigger failed.',
-      });
-    } finally {
-      setIsTriggering(false);
-    }
-  };
+  const totalValid = summary?.valid_records ?? summary?.accepted_records ?? 0;
+  const totalRejected = summary?.rejected_records ?? 0;
+  const totalRecords = totalValid + totalRejected;
+  const validPercent = totalRecords > 0 ? Math.round((totalValid / totalRecords) * 100) : 0;
 
-  // Pie chart data for Accepted vs Rejected
+  // Donut chart data
   const pieData = [
-    { name: 'Accepted', value: summary?.accepted_records || 0, color: '#10b981' },
-    { name: 'Rejected', value: summary?.rejected_records || 0, color: '#f43f5e' },
+    { name: 'Valid Records', value: totalValid, color: '#10b981' },
+    { name: 'Quarantined Rejections', value: totalRejected, color: '#f43f5e' },
   ];
 
   const handleOpenCorrection = (rej) => {
@@ -108,263 +120,196 @@ export default function Dashboard({ onNavigate, onOpenAdvanced }) {
   };
 
   return (
-    <div className="space-y-10 max-w-7xl mx-auto pb-12">
+    <div className="space-y-8 max-w-7xl mx-auto pb-12 animate-fadeIn">
       {/* ========================================================================= */}
-      {/* 1. HERO SECTION (Dark Neon Purple SaaS Aesthetic) */}
+      {/* 1. DASHBOARD HEADER & QUICK ACTIONS */}
       {/* ========================================================================= */}
-      <section className="relative overflow-hidden rounded-3xl bg-[#10101F] border border-[rgba(168,85,247,0.18)] p-6 sm:p-10 text-center space-y-6">
-        {/* Subtle radial purple glow backdrop */}
-        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_0%,rgba(168,85,247,0.15),transparent_65%)]" />
-
-        {/* Small Eyebrow Label */}
-        <div className="relative inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-[#8B5CF6]/15 border border-[rgba(168,85,247,0.3)] text-[#D8B4FE] text-xs font-semibold tracking-wider uppercase shadow-[0_0_12px_-2px_rgba(168,85,247,0.25)]">
-          <Sparkles className="w-3.5 h-3.5 text-[#A855F7]" />
-          <span>Point-in-Time ML Feature Engineering</span>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-[rgba(168,85,247,0.18)]">
+        <div>
+          <div className="flex items-center space-x-2.5">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#F8F7FF] tracking-tight">
+              Data Processing Dashboard
+            </h1>
+            <span className="text-[10px] font-semibold uppercase px-2.5 py-0.5 rounded-full bg-[#8B5CF6]/15 border border-[rgba(168,85,247,0.3)] text-[#D8B4FE]">
+              Live Engine
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-[#A1A1B5] mt-1">
+            Monitor your datasets, processing activity, data quality, and generated features.
+          </p>
         </div>
 
-        {/* Main Headline */}
-        <h1 className="relative text-3xl sm:text-5xl font-extrabold text-[#F8F7FF] tracking-tight leading-tight max-w-3xl mx-auto">
-          Turn Raw Data Into{' '}
-          <span className="bg-gradient-to-r from-[#A855F7] via-[#C084FC] to-[#D8B4FE] bg-clip-text text-transparent">
-            Reliable ML Features.
-          </span>
-        </h1>
-
-        {/* Supporting Description */}
-        <p className="relative text-sm sm:text-base text-[#A1A1B5] max-w-2xl mx-auto font-normal leading-relaxed">
-          Transform historical event data into clean, consistent, point-in-time correct features—ready for machine learning.
-        </p>
-
-        {/* Primary & Secondary Call-to-Actions */}
-        <div className="relative flex flex-wrap items-center justify-center gap-3 pt-2">
+        {/* Dashboard Actions */}
+        <div className="flex flex-wrap items-center gap-2.5">
           <button
             onClick={() => onNavigate('wizard', 'upload')}
-            className="flex items-center space-x-2 bg-gradient-to-r from-[#8B5CF6] to-[#A855F7] text-white hover:opacity-95 font-semibold text-xs sm:text-sm py-3 px-6 rounded-xl transition-all shadow-[0_0_20px_-3px_rgba(168,85,247,0.5)] hover:scale-[1.02]"
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#8B5CF6] to-[#A855F7] hover:opacity-95 text-white text-xs font-semibold shadow-lg shadow-[#8B5CF6]/25 transition-opacity"
           >
-            <UploadCloud className="w-4 h-4" />
-            <span>Get Started</span>
-            <ArrowRight className="w-4 h-4" />
+            <UploadCloud className="w-3.5 h-3.5" />
+            <span>Upload Dataset</span>
           </button>
 
           <button
-            onClick={() => onNavigate('wizard', 'sample')}
-            className="flex items-center space-x-2 bg-[#16112B] hover:bg-[#211936] text-[#F8F7FF] border border-[rgba(168,85,247,0.3)] hover:border-[#A855F7]/60 font-semibold text-xs sm:text-sm py-3 px-6 rounded-xl transition-all hover:scale-[1.02]"
+            onClick={() => onNavigate('results')}
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-[#211936] hover:bg-[#2c2247] text-[#F8F7FF] border border-[rgba(168,85,247,0.25)] text-xs font-semibold transition-colors"
           >
-            <FolderOpen className="w-4 h-4 text-[#D8B4FE]" />
-            <span>Explore Sample Dataset</span>
+            <FileSpreadsheet className="w-3.5 h-3.5 text-[#D8B4FE]" />
+            <span>View Results</span>
+          </button>
+
+          <button
+            onClick={() => onNavigate('history')}
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-[#211936] hover:bg-[#2c2247] text-[#F8F7FF] border border-[rgba(168,85,247,0.25)] text-xs font-semibold transition-colors"
+          >
+            <History className="w-3.5 h-3.5 text-[#D8B4FE]" />
+            <span>View History</span>
+          </button>
+
+          <button
+            onClick={fetchDashboardData}
+            disabled={isLoading}
+            className="p-2 rounded-xl bg-[#16112B] hover:bg-[#211936] text-[#A1A1B5] hover:text-[#F8F7FF] border border-[rgba(168,85,247,0.2)] transition-colors disabled:opacity-50"
+            title="Refresh dashboard data"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-[#8B5CF6]' : ''}`} />
           </button>
         </div>
+      </div>
 
-        {/* Product Illustration: Raw Data → Validation → Feature Engineering → ML-Ready Output */}
-        <div className="relative pt-6 max-w-4xl mx-auto">
-          <div className="p-4 rounded-2xl bg-[#080811]/70 border border-[rgba(168,85,247,0.2)] backdrop-blur-sm">
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-left">
-              {/* Step 1 */}
-              <div className="p-3 rounded-xl bg-[#16112B] border border-[rgba(168,85,247,0.15)] relative">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold text-[#A855F7] tracking-wider uppercase font-mono">01. Source</span>
-                  <Database className="w-3.5 h-3.5 text-[#D8B4FE]" />
-                </div>
-                <div className="text-xs font-bold text-[#F8F7FF]">Raw Data</div>
-                <div className="text-[10px] text-[#A1A1B5] mt-0.5">Banking, Orders, Events CSV</div>
-              </div>
-
-              {/* Step 2 */}
-              <div className="p-3 rounded-xl bg-[#16112B] border border-[rgba(168,85,247,0.15)] relative">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold text-[#A855F7] tracking-wider uppercase font-mono">02. Safety</span>
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#10b981]" />
-                </div>
-                <div className="text-xs font-bold text-[#F8F7FF]">Validation</div>
-                <div className="text-[10px] text-[#A1A1B5] mt-0.5">Schema, types, quarantine</div>
-              </div>
-
-              {/* Step 3 */}
-              <div className="p-3 rounded-xl bg-[#16112B] border border-[rgba(168,85,247,0.15)] relative">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold text-[#A855F7] tracking-wider uppercase font-mono">03. Engine</span>
-                  <Cpu className="w-3.5 h-3.5 text-[#A855F7]" />
-                </div>
-                <div className="text-xs font-bold text-[#F8F7FF]">Feature Engineering</div>
-                <div className="text-[10px] text-[#A1A1B5] mt-0.5">event &lt; T &amp; avail &le; T</div>
-              </div>
-
-              {/* Step 4 */}
-              <div className="p-3 rounded-xl bg-[#16112B] border border-[rgba(168,85,247,0.15)] relative">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold text-[#A855F7] tracking-wider uppercase font-mono">04. Deliver</span>
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-[#D8B4FE]" />
-                </div>
-                <div className="text-xs font-bold text-[#F8F7FF]">ML-Ready Output</div>
-                <div className="text-[10px] text-[#A1A1B5] mt-0.5">Leakage-free feature vectors</div>
-              </div>
+      {/* ========================================================================= */}
+      {/* ERROR ALERT BANNER (If API Failed) */}
+      {/* ========================================================================= */}
+      {hasError && (
+        <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/40 text-xs text-rose-300 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-lg">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-rose-200">Unable to load dashboard metrics</span>
+              <p className="text-rose-300/80 mt-0.5">{hasError}</p>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Trigger Notification */}
-      {triggerMsg && (
-        <div
-          className={`p-3.5 rounded-xl text-xs flex items-center space-x-2 border animate-in fade-in ${
-            triggerMsg.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-          }`}
-        >
-          {triggerMsg.type === 'success' ? (
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-          ) : (
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-          )}
-          <span>{triggerMsg.text}</span>
+          <button
+            onClick={fetchDashboardData}
+            className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold transition-colors self-start sm:self-auto shrink-0"
+          >
+            Retry Connection
+          </button>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* 2. QUICK ACTIONS (3 Compact Actions) */}
+      {/* 2. FOUR PRIMARY DASHBOARD SUMMARY CARDS */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <button
-          onClick={() => onNavigate('wizard', 'upload')}
-          className="flex items-center justify-between p-4 rounded-2xl bg-[#16112B] hover:bg-[#211936] border border-[rgba(168,85,247,0.18)] hover:border-[#A855F7]/40 transition-all text-left group"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-[#8B5CF6]/15 border border-[rgba(168,85,247,0.3)] flex items-center justify-center text-[#D8B4FE] group-hover:scale-105 transition-transform">
-              <UploadCloud className="w-4 h-4 text-[#A855F7]" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-[#F8F7FF] group-hover:text-[#D8B4FE] transition-colors">
-                Upload Dataset
-              </div>
-              <div className="text-[10px] text-[#A1A1B5]">Import transactional CSV files</div>
-            </div>
-          </div>
-          <ArrowRight className="w-4 h-4 text-[#A1A1B5] group-hover:text-[#D8B4FE] group-hover:translate-x-0.5 transition-all" />
-        </button>
-
-        <button
-          onClick={() => onNavigate('wizard', 'sample')}
-          className="flex items-center justify-between p-4 rounded-2xl bg-[#16112B] hover:bg-[#211936] border border-[rgba(168,85,247,0.18)] hover:border-[#A855F7]/40 transition-all text-left group"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-[#8B5CF6]/15 border border-[rgba(168,85,247,0.3)] flex items-center justify-center text-[#D8B4FE] group-hover:scale-105 transition-transform">
-              <Zap className="w-4 h-4 text-[#D8B4FE]" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-[#F8F7FF] group-hover:text-[#D8B4FE] transition-colors">
-                Generate Features
-              </div>
-              <div className="text-[10px] text-[#A1A1B5]">Extract rolling lookback features</div>
-            </div>
-          </div>
-          <ArrowRight className="w-4 h-4 text-[#A1A1B5] group-hover:text-[#D8B4FE] group-hover:translate-x-0.5 transition-all" />
-        </button>
-
-        <button
-          onClick={() => onNavigate('history')}
-          className="flex items-center justify-between p-4 rounded-2xl bg-[#16112B] hover:bg-[#211936] border border-[rgba(168,85,247,0.18)] hover:border-[#A855F7]/40 transition-all text-left group"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 group-hover:scale-105 transition-transform">
-              <ShieldCheck className="w-4 h-4 text-rose-400" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-[#F8F7FF] group-hover:text-[#D8B4FE] transition-colors">
-                Review Data Quality
-              </div>
-              <div className="text-[10px] text-[#A1A1B5]">Inspect &amp; fix quarantined rejects</div>
-            </div>
-          </div>
-          <ArrowRight className="w-4 h-4 text-[#A1A1B5] group-hover:text-[#D8B4FE] group-hover:translate-x-0.5 transition-all" />
-        </button>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 3. DASHBOARD OVERVIEW: 4 PRIMARY METRIC CARDS */}
-      {/* ========================================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {/* Card 1: Datasets Processed */}
-        <div className="p-5 rounded-2xl bg-[#16112B] border border-[rgba(168,85,247,0.18)] hover:border-[rgba(168,85,247,0.4)] transition-all shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-[#A1A1B5] uppercase tracking-wider">
-              Datasets Processed
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-[#8B5CF6]/15 border border-[rgba(168,85,247,0.3)] flex items-center justify-center text-[#D8B4FE]">
-              <FolderOpen className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-3xl font-extrabold text-[#F8F7FF] tracking-tight">
-            {datasetsCount > 0 ? datasetsCount : (summary?.total_records_processed ? 3 : '0')}
-          </div>
-          <p className="text-[11px] text-[#A1A1B5] mt-1">
-            Distinct input sources ingested &amp; verified
-          </p>
-        </div>
-
-        {/* Card 2: Records Validated */}
-        <div className="p-5 rounded-2xl bg-[#16112B] border border-[rgba(168,85,247,0.18)] hover:border-[rgba(168,85,247,0.4)] transition-all shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-[#A1A1B5] uppercase tracking-wider">
-              Records Validated
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-3xl font-extrabold text-emerald-400 tracking-tight">
-            {summary ? Number(summary.accepted_records).toLocaleString() : '—'}
-          </div>
-          <p className="text-[11px] text-[#A1A1B5] mt-1">
-            Valid transactions stored in operational WAL
-          </p>
-        </div>
-
-        {/* Card 3: Features Generated */}
-        <div className="p-5 rounded-2xl bg-[#16112B] border border-[rgba(168,85,247,0.18)] hover:border-[rgba(168,85,247,0.4)] transition-all shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-[#A1A1B5] uppercase tracking-wider">
-              Features Generated
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-[#8B5CF6]/15 border border-[rgba(168,85,247,0.3)] flex items-center justify-center text-[#A855F7]">
-              <Cpu className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-3xl font-extrabold text-[#D8B4FE] tracking-tight">
-            {summary ? Number(summary.generated_ml_features).toLocaleString() : '—'}
-          </div>
-          <p className="text-[11px] text-[#A1A1B5] mt-1">
-            Leakage-safe point-in-time snapshots
-          </p>
-        </div>
-
-        {/* Card 4: Records Needing Attention */}
-        <div className="p-5 rounded-2xl bg-[#16112B] border border-[rgba(168,85,247,0.18)] hover:border-[rgba(168,85,247,0.4)] transition-all shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-2">
+        <div className="p-5 rounded-2xl bg-[#16112B] border border-[rgba(168,85,247,0.18)] hover:border-[rgba(168,85,247,0.4)] transition-all shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-[#A1A1B5] uppercase tracking-wider">
-                Needs Attention
+                Datasets Processed
               </span>
-              {summary && summary.rejection_rate_percent > 0 && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                  {summary.rejection_rate_percent}%
-                </span>
+              <div className="w-8 h-8 rounded-lg bg-[#8B5CF6]/15 border border-[rgba(168,85,247,0.25)] flex items-center justify-center text-[#D8B4FE]">
+                <Database className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-3xl font-extrabold text-[#F8F7FF] tracking-tight">
+              {isLoading ? (
+                <div className="h-8 w-16 bg-[#211936] rounded animate-pulse" />
+              ) : (
+                summary?.datasets_processed ?? (totalRecords > 0 ? 1 : 0)
               )}
             </div>
-            <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
-              <AlertTriangle className="w-4 h-4" />
+          </div>
+          <p className="text-[11px] text-[#A1A1B5] mt-3 pt-2 border-t border-[rgba(168,85,247,0.1)]">
+            Distinct input CSV sources ingested
+          </p>
+        </div>
+
+        {/* Card 2: Valid Records */}
+        <div className="p-5 rounded-2xl bg-[#16112B] border border-[rgba(168,85,247,0.18)] hover:border-[rgba(168,85,247,0.4)] transition-all shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-[#A1A1B5] uppercase tracking-wider">
+                Valid Records
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-3xl font-extrabold text-emerald-400 tracking-tight">
+              {isLoading ? (
+                <div className="h-8 w-20 bg-[#211936] rounded animate-pulse" />
+              ) : (
+                totalValid.toLocaleString()
+              )}
             </div>
           </div>
-          <div className="text-3xl font-extrabold text-rose-400 tracking-tight">
-            {summary ? Number(summary.needs_attention_count).toLocaleString() : '—'}
+          <p className="text-[11px] text-[#A1A1B5] mt-3 pt-2 border-t border-[rgba(168,85,247,0.1)]">
+            Stored operational transactions
+          </p>
+        </div>
+
+        {/* Card 3: Rejected Records */}
+        <div className="p-5 rounded-2xl bg-[#16112B] border border-[rgba(168,85,247,0.18)] hover:border-[rgba(168,85,247,0.4)] transition-all shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-semibold text-[#A1A1B5] uppercase tracking-wider">
+                  Rejected Records
+                </span>
+                {totalRecords > 0 && summary?.rejection_rate_percent !== undefined && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                    {summary.rejection_rate_percent}%
+                  </span>
+                )}
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/25 flex items-center justify-center text-rose-400">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-3xl font-extrabold text-rose-400 tracking-tight">
+              {isLoading ? (
+                <div className="h-8 w-20 bg-[#211936] rounded animate-pulse" />
+              ) : (
+                totalRejected.toLocaleString()
+              )}
+            </div>
           </div>
-          <p className="text-[11px] text-[#A1A1B5] mt-1">
-            Quarantined defective or conflicting records
+          <p className="text-[11px] text-[#A1A1B5] mt-3 pt-2 border-t border-[rgba(168,85,247,0.1)]">
+            {summary?.needs_attention_count 
+              ? `${summary.needs_attention_count} require review in quarantine` 
+              : 'Quarantined defective rows'}
+          </p>
+        </div>
+
+        {/* Card 4: Feature Snapshots Generated */}
+        <div className="p-5 rounded-2xl bg-[#16112B] border border-[rgba(168,85,247,0.18)] hover:border-[rgba(168,85,247,0.4)] transition-all shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-[#A1A1B5] uppercase tracking-wider">
+                Feature Snapshots
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-[#8B5CF6]/15 border border-[rgba(168,85,247,0.3)] flex items-center justify-center text-[#A855F7]">
+                <Cpu className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-3xl font-extrabold text-[#D8B4FE] tracking-tight">
+              {isLoading ? (
+                <div className="h-8 w-16 bg-[#211936] rounded animate-pulse" />
+              ) : (
+                (summary?.feature_snapshots_generated ?? summary?.generated_ml_features ?? 0).toLocaleString()
+              )}
+            </div>
+          </div>
+          <p className="text-[11px] text-[#A1A1B5] mt-3 pt-2 border-t border-[rgba(168,85,247,0.1)]">
+            Leakage-safe point-in-time vectors
           </p>
         </div>
       </div>
 
-      {/* Needs Attention Alert Card */}
+      {/* ========================================================================= */}
+      {/* 3. NEEDS ATTENTION ALERT BANNER */}
+      {/* ========================================================================= */}
       {summary && summary.needs_attention_count > 0 && (
         <div className="p-5 rounded-2xl bg-gradient-to-r from-rose-950/40 to-[#16112B] border border-rose-500/30 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-start space-x-3.5">
@@ -377,11 +322,11 @@ export default function Dashboard({ onNavigate, onOpenAdvanced }) {
                   {summary.needs_attention_count} Quarantined Record(s) Require Review
                 </h3>
                 <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-rose-500/20 text-rose-300">
-                  Action Required
+                  Data Quality
                 </span>
               </div>
               <p className="text-xs text-[#A1A1B5] mt-1 max-w-2xl leading-relaxed">
-                Records with validation defects (e.g. negative values, missing keys, timestamp violations) were quarantined to preserve strict feature integrity.
+                Records with validation defects (e.g. negative values, missing keys, causality violations) are quarantined to protect ML features from dirty data.
               </p>
               {/* Top reasons tags */}
               <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
@@ -404,14 +349,14 @@ export default function Dashboard({ onNavigate, onOpenAdvanced }) {
                 className="flex items-center space-x-1.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold py-2 px-4 rounded-xl text-xs transition-colors shadow-lg shadow-rose-600/20"
               >
                 <Wrench className="w-3.5 h-3.5" />
-                <span>Review &amp; Fix Records</span>
+                <span>Review &amp; Fix</span>
               </button>
             )}
             <button
               onClick={() => onNavigate('history')}
               className="flex items-center space-x-1.5 bg-[#211936] hover:bg-[#16112B] text-[#F8F7FF] border border-[rgba(168,85,247,0.25)] font-semibold py-2 px-3.5 rounded-xl text-xs transition-colors"
             >
-              <span>View All Rejects</span>
+              <span>View All</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -419,102 +364,167 @@ export default function Dashboard({ onNavigate, onOpenAdvanced }) {
       )}
 
       {/* ========================================================================= */}
-      {/* 4. CHARTS: Accepted vs Rejected & Processing Activity */}
+      {/* 4. CHARTS: ACCEPTED VS REJECTED & PROCESSING ACTIVITY OVER TIME */}
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Chart 1: Accepted vs Rejected Distribution */}
-        <div className="p-5 rounded-2xl bg-[#16112B] border border-[rgba(168,85,247,0.18)] space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-[#F8F7FF]">Accepted vs. Rejected</h3>
-              <p className="text-[11px] text-[#A1A1B5] mt-0.5">Ingestion data quality ratio</p>
+        <div className="p-5 rounded-2xl bg-[#16112B] border border-[rgba(168,85,247,0.18)] space-y-4 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-[#F8F7FF]">Accepted vs. Rejected</h3>
+                <p className="text-[11px] text-[#A1A1B5] mt-0.5">Ingestion data quality ratio</p>
+              </div>
+              {totalRecords > 0 ? (
+                <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  {validPercent}% Valid
+                </span>
+              ) : (
+                <span className="text-[11px] font-mono text-[#A1A1B5] bg-[#211936] px-2 py-0.5 rounded border border-[rgba(168,85,247,0.2)]">
+                  No Data
+                </span>
+              )}
             </div>
-            <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-              {summary?.total_records_processed
-                ? `${Math.round(((summary.accepted_records || 0) / summary.total_records_processed) * 100)}% Pass`
-                : '100%'}
-            </span>
+
+            {/* Donut Chart or Clean Empty State */}
+            <div className="h-56 w-full flex items-center justify-center mt-2">
+              {totalRecords === 0 ? (
+                <div className="text-center p-4 space-y-2">
+                  <div className="w-10 h-10 rounded-xl bg-[#211936] flex items-center justify-center mx-auto text-[#A1A1B5]">
+                    <PieChartIcon className="w-5 h-5 text-[#8B5CF6]" />
+                  </div>
+                  <p className="text-xs text-[#A1A1B5] font-medium">
+                    No processing data available yet.
+                  </p>
+                  <p className="text-[11px] text-[#A1A1B5]/70">
+                    Upload a dataset to get started.
+                  </p>
+                </div>
+              ) : (
+                <div className="h-full w-full relative">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={80}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#10101F',
+                          borderColor: 'rgba(168, 85, 247, 0.3)',
+                          borderRadius: '10px',
+                          fontSize: '12px',
+                          color: '#F8F7FF',
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* Center Stat */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-xl font-extrabold text-[#F8F7FF]">{validPercent}%</span>
+                    <span className="text-[10px] uppercase font-semibold text-[#A1A1B5]">Pass</span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="h-56 flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={80}
-                  paddingAngle={4}
-                  dataKey="value"
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#10101F',
-                    borderColor: 'rgba(168, 85, 247, 0.3)',
-                    borderRadius: '10px',
-                    fontSize: '12px',
-                    color: '#F8F7FF',
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[rgba(168,85,247,0.15)] text-xs">
+          <div className="grid grid-cols-2 gap-2 pt-3 border-t border-[rgba(168,85,247,0.12)] text-xs">
             <div className="flex items-center space-x-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
               <span className="text-[#A1A1B5]">Accepted:</span>
-              <span className="font-semibold text-[#F8F7FF]">{summary?.accepted_records || 0}</span>
+              <span className="font-semibold text-[#F8F7FF]">{totalValid}</span>
             </div>
             <div className="flex items-center space-x-2">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-400"></span>
               <span className="text-[#A1A1B5]">Rejected:</span>
-              <span className="font-semibold text-[#F8F7FF]">{summary?.rejected_records || 0}</span>
+              <span className="font-semibold text-[#F8F7FF]">{totalRejected}</span>
             </div>
           </div>
         </div>
 
         {/* Chart 2: Processing Activity Over Time */}
-        <div className="p-5 rounded-2xl bg-[#16112B] border border-[rgba(168,85,247,0.18)] space-y-4 lg:col-span-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-[#F8F7FF]">Processing Activity Over Time</h3>
-              <p className="text-[11px] text-[#A1A1B5] mt-0.5">Ingestion volume and feature generation batch cadence</p>
+        <div className="p-5 rounded-2xl bg-[#16112B] border border-[rgba(168,85,247,0.18)] space-y-4 lg:col-span-2 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-[#F8F7FF]">Processing Activity Over Time</h3>
+                <p className="text-[11px] text-[#A1A1B5] mt-0.5">
+                  Actual ingestion volumes and feature generation output (no parent run double-counting)
+                </p>
+              </div>
+              <div className="flex items-center space-x-2 text-[11px] text-[#D8B4FE]">
+                <TrendingUp className="w-3.5 h-3.5 text-[#A855F7]" />
+                <span>Audit Verified</span>
+              </div>
             </div>
-            <div className="flex items-center space-x-2 text-[11px] text-[#D8B4FE]">
-              <TrendingUp className="w-3.5 h-3.5 text-[#A855F7]" />
-              <span>Audit Ledger</span>
+
+            {/* Bar Chart Container */}
+            <div className="h-56 w-full min-w-0 mt-2">
+              {activityData.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-4 space-y-2">
+                  <div className="w-10 h-10 rounded-xl bg-[#211936] flex items-center justify-center mx-auto text-[#A1A1B5]">
+                    <BarChart3 className="w-5 h-5 text-[#8B5CF6]" />
+                  </div>
+                  <p className="text-xs text-[#A1A1B5] font-medium">
+                    No processing activity recorded yet.
+                  </p>
+                  <p className="text-[11px] text-[#A1A1B5]/70">
+                    Upload a dataset or trigger a pipeline run to populate activity metrics.
+                  </p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
+                  <BarChart
+                    data={activityData}
+                    margin={{ top: 10, right: 15, left: -15, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(168, 85, 247, 0.08)" />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="#A1A1B5" 
+                      fontSize={11} 
+                      tickLine={false}
+                    />
+                    <YAxis 
+                      stroke="#A1A1B5" 
+                      fontSize={11} 
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#10101F',
+                        borderColor: 'rgba(168, 85, 247, 0.3)',
+                        borderRadius: '10px',
+                        fontSize: '12px',
+                        color: '#F8F7FF',
+                      }}
+                    />
+                    <Legend 
+                      iconType="circle" 
+                      wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} 
+                    />
+                    <Bar dataKey="accepted" name="Accepted Records" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="rejected" name="Rejected Records" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="features" name="ML Features" fill="#A855F7" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
 
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={summary?.activity_timeline || []}
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-              >
-                <XAxis dataKey="date" stroke="#A1A1B5" fontSize={11} tickLine={false} />
-                <YAxis stroke="#A1A1B5" fontSize={11} tickLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#10101F',
-                    borderColor: 'rgba(168, 85, 247, 0.3)',
-                    borderRadius: '10px',
-                    fontSize: '12px',
-                    color: '#F8F7FF',
-                  }}
-                />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-                <Bar dataKey="accepted" name="Accepted Records" fill="#10b981" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="rejected" name="Rejected Records" fill="#f43f5e" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="features" name="ML Features" fill="#A855F7" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="pt-2 border-t border-[rgba(168,85,247,0.12)] flex items-center justify-between text-[11px] text-[#A1A1B5]">
+            <span>Series: Valid Transactions, Quarantined Rejections, Published Feature Snapshots</span>
+            <span className="font-mono text-[#D8B4FE]">Cadence: Batch Execution</span>
           </div>
         </div>
       </div>
@@ -526,7 +536,9 @@ export default function Dashboard({ onNavigate, onOpenAdvanced }) {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold text-[#F8F7FF]">Recent Activity</h3>
-            <p className="text-[11px] text-[#A1A1B5] mt-0.5">Recent dataset uploads, validations, and pipeline runs</p>
+            <p className="text-[11px] text-[#A1A1B5] mt-0.5">
+              Latest pipeline executions, row accounting, and reconciliation statuses
+            </p>
           </div>
           <button
             onClick={() => onNavigate('history')}
@@ -541,24 +553,29 @@ export default function Dashboard({ onNavigate, onOpenAdvanced }) {
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-[rgba(168,85,247,0.15)] text-[11px] text-[#A1A1B5] uppercase tracking-wider bg-[#10101F]/60">
-                <th className="py-2.5 px-3">Dataset</th>
-                <th className="py-2.5 px-3">Last Processed</th>
-                <th className="py-2.5 px-3">Records</th>
+                <th className="py-2.5 px-3">Dataset / Source</th>
+                <th className="py-2.5 px-3">Processing Date</th>
+                <th className="py-2.5 px-3 text-right">Input Records</th>
+                <th className="py-2.5 px-3 text-right">Accepted</th>
+                <th className="py-2.5 px-3 text-right">Rejected</th>
                 <th className="py-2.5 px-3">Status</th>
                 <th className="py-2.5 px-3 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[rgba(168,85,247,0.1)] font-sans">
-              {historyRuns.length > 0 ? (
-                historyRuns.map((r) => {
+              {recentRuns.length > 0 ? (
+                recentRuns.map((r) => {
                   const badgeColor =
-                    r.status_badge === 'green'
+                    r.badge_color === 'green'
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                      : r.status_badge === 'amber'
+                      : r.badge_color === 'amber'
                       ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
                       : 'bg-rose-500/10 text-rose-400 border-rose-500/30';
 
-                  const datasetName = r.source_file || r.friendly_type;
+                  const datasetName = r.source_file || r.dataset_name || r.friendly_type;
+                  const inputCount = r.input_records ?? r.input_rows ?? r.records_processed ?? 0;
+                  const acceptedCount = r.accepted_records ?? r.accepted_rows ?? 0;
+                  const rejectedCount = r.rejected_records ?? r.rejected_rows ?? 0;
 
                   return (
                     <tr key={r.run_id} className="hover:bg-[#211936]/50 transition-colors">
@@ -569,13 +586,14 @@ export default function Dashboard({ onNavigate, onOpenAdvanced }) {
                       <td className="py-3 px-3 text-[#A1A1B5] font-mono text-[11px]">
                         {r.start_time ? new Date(r.start_time).toLocaleString() : '—'}
                       </td>
-                      <td className="py-3 px-3">
-                        <div className="text-[#F8F7FF] font-medium">
-                          {r.input_rows?.toLocaleString() || 0} rows
-                        </div>
-                        {r.rejected_rows > 0 && (
-                          <div className="text-[10px] text-rose-400">{r.rejected_rows} rejected</div>
-                        )}
+                      <td className="py-3 px-3 text-right font-medium text-[#F8F7FF]">
+                        {Number(inputCount).toLocaleString()}
+                      </td>
+                      <td className="py-3 px-3 text-right font-semibold text-emerald-400">
+                        {Number(acceptedCount).toLocaleString()}
+                      </td>
+                      <td className="py-3 px-3 text-right font-semibold text-rose-400">
+                        {Number(rejectedCount).toLocaleString()}
                       </td>
                       <td className="py-3 px-3">
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${badgeColor}`}>
@@ -589,7 +607,7 @@ export default function Dashboard({ onNavigate, onOpenAdvanced }) {
                           }}
                           className="text-xs text-[#D8B4FE] hover:text-white font-medium hover:underline inline-flex items-center space-x-1"
                         >
-                          <span>Inspect</span>
+                          <span>View Details</span>
                           <ExternalLink className="w-3 h-3 text-[#A855F7]" />
                         </button>
                       </td>
@@ -598,8 +616,8 @@ export default function Dashboard({ onNavigate, onOpenAdvanced }) {
                 })
               ) : (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-[#A1A1B5]">
-                    No dataset processing activity recorded yet. Click "Get Started" to upload your first dataset.
+                  <td colSpan={7} className="py-8 text-center text-[#A1A1B5]">
+                    No dataset processing activity recorded yet. Click "Upload Dataset" to get started.
                   </td>
                 </tr>
               )}

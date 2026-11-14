@@ -10,6 +10,9 @@ from database.db import BaseSession
 from database.models import RejectedRecord
 from backend.schemas import (
     DashboardSummaryResponse,
+    DashboardActivityResponse,
+    DashboardDataQualityResponse,
+    DashboardRecentRunsResponse,
     RecordHistoryListResponse,
     RecordDetailResponse,
     ProcessingHistoryListResponse,
@@ -33,12 +36,36 @@ def get_db():
         db.close()
 
 
-# 1. Dashboard Executive Summary
+# 1. Dashboard Executive Summary & Sub-APIs
 @router.get("/dashboard/summary", response_model=DashboardSummaryResponse)
 def api_get_dashboard_summary(db: Session = Depends(get_db)):
     """Retrieve top-level operational metrics, distributions, and recent activity."""
     service = HistoryService(db)
     return service.get_dashboard_summary()
+
+
+@router.get("/dashboard/activity", response_model=DashboardActivityResponse)
+def api_get_dashboard_activity(db: Session = Depends(get_db)):
+    """Retrieve detailed activity timelines and per-run breakdown without double counting."""
+    service = HistoryService(db)
+    return service.get_dashboard_activity()
+
+
+@router.get("/dashboard/data-quality", response_model=DashboardDataQualityResponse)
+def api_get_dashboard_data_quality(db: Session = Depends(get_db)):
+    """Retrieve detailed data quality distributions and category breakdowns."""
+    service = HistoryService(db)
+    return service.get_dashboard_data_quality()
+
+
+@router.get("/dashboard/recent-runs", response_model=DashboardRecentRunsResponse)
+def api_get_dashboard_recent_runs(
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    """Fetch latest pipeline execution runs with full row accounting."""
+    service = HistoryService(db)
+    return service.get_dashboard_recent_runs(limit=limit)
 
 
 # 2. Record History
@@ -51,7 +78,7 @@ def api_get_record_history(
     start_date: Optional[str] = Query(None, description="ISO start date filter"),
     end_date: Optional[str] = Query(None, description="ISO end date filter"),
     page: int = Query(1, ge=1),
-    limit: int = Query(25, ge=5, le=500),
+    limit: int = Query(25, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
     """Retrieve paginated and filtered historical records audit log."""
