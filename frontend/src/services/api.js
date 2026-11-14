@@ -87,6 +87,42 @@ export const apiClient = {
     const res = await api.get('/rejects', { params });
     return res.data;
   },
+
+  // Dashboard Summary & History Observability
+  getDashboardSummary: async () => {
+    const res = await api.get('/dashboard/summary');
+    return res.data;
+  },
+  getHistoryRecords: async (params = {}) => {
+    const res = await api.get('/history/records', { params });
+    return res.data;
+  },
+  getHistoryRecordDetail: async (historyId) => {
+    const res = await api.get(`/history/records/${historyId}`);
+    return res.data;
+  },
+  getHistoryRuns: async (params = {}) => {
+    const res = await api.get('/history/runs', { params });
+    return res.data;
+  },
+  getExportHistoryUrl: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return `/api/history/export?${query}`;
+  },
+
+  // Quarantine Correction & Safe Reprocessing
+  validateCorrection: async (rejectId, payload) => {
+    const res = await api.post(`/rejects/${rejectId}/validate`, payload);
+    return res.data;
+  },
+  saveCorrection: async (rejectId, payload) => {
+    const res = await api.post(`/rejects/${rejectId}/corrections`, payload);
+    return res.data;
+  },
+  reprocessReject: async (rejectId, payload) => {
+    const res = await api.post(`/rejects/${rejectId}/reprocess`, payload);
+    return res.data;
+  },
 };
 
 export default apiClient;

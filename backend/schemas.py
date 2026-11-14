@@ -117,6 +117,8 @@ class RejectedRecordItem(BaseModel):
     source_row_number: int
     raw_record: str
     rejection_reason: str
+    resolution_status: Optional[str] = "unresolved"
+    resolved_at: Optional[str] = None
     rejected_at: str
 
 
@@ -174,5 +176,146 @@ class GenerateGenericFeaturesResponse(BaseModel):
     all_features: List[Dict[str, Any]]
     leakage_prevention_guarantee: str
     has_availability_warning: bool
+
+
+# 8. User-Friendly Dashboard, History & Reprocessing Schemas
+class DashboardSummaryResponse(BaseModel):
+    total_records_processed: int
+    accepted_records: int
+    rejected_records: int
+    rejection_rate_percent: float
+    generated_ml_features: int
+    needs_attention_count: int
+    rejection_reasons_summary: List[Dict[str, Any]]
+    accepted_vs_rejected: Dict[str, int]
+    activity_timeline: List[Dict[str, Any]]
+    recent_activity: List[Dict[str, Any]]
+
+
+class RecordHistoryItem(BaseModel):
+    history_id: str
+    record_id: str
+    entity_id: Optional[str] = None
+    source_file: str
+    source_row_number: int
+    event_time: Optional[str] = None
+    available_at: Optional[str] = None
+    amount: Optional[float] = None
+    event_type: Optional[str] = None
+    processing_status: str
+    rejection_reason: Optional[str] = None
+    rejection_title: Optional[str] = None
+    rejection_category: Optional[str] = None
+    initial_run_id: str
+    latest_run_id: str
+    first_seen_at: Optional[str] = None
+    last_processed_at: Optional[str] = None
+    resolved_at: Optional[str] = None
+
+
+class RecordHistoryListResponse(BaseModel):
+    total: int
+    page: int
+    limit: int
+    records: List[RecordHistoryItem]
+    filter_options: Dict[str, List[str]]
+
+
+class RecordCorrectionItem(BaseModel):
+    correction_id: str
+    history_id: Optional[str] = None
+    reject_id: Optional[str] = None
+    original_payload: str
+    corrected_payload: str
+    validation_status: str
+    validation_errors: Optional[str] = None
+    correction_reason: Optional[str] = None
+    resolved_by: str
+    created_at: Optional[str] = None
+    processed_at: Optional[str] = None
+    retry_run_id: Optional[str] = None
+
+
+class RecordProcessingEventItem(BaseModel):
+    event_id: str
+    history_id: Optional[str] = None
+    reject_id: Optional[str] = None
+    run_id: str
+    event_type: str
+    status: str
+    message: str
+    created_at: Optional[str] = None
+
+
+class RecordDetailResponse(BaseModel):
+    record: RecordHistoryItem
+    original_payload: str
+    reject_id: Optional[str] = None
+    corrections: List[RecordCorrectionItem]
+    events: List[RecordProcessingEventItem]
+    affected_snapshots_warning: Optional[str] = None
+
+
+class ProcessingHistoryRunItem(BaseModel):
+    run_id: str
+    friendly_type: str
+    raw_run_type: str
+    source_file: Optional[str] = None
+    status: str
+    status_badge: str
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    duration_seconds: float
+    input_rows: int
+    accepted_rows: int
+    rejected_rows: int
+    feature_rows: int
+    reconciliation_status: Optional[str] = None
+    error_message: Optional[str] = None
+
+
+class ProcessingHistoryListResponse(BaseModel):
+    total: int
+    runs: List[ProcessingHistoryRunItem]
+
+
+class ValidateCorrectionRequest(BaseModel):
+    entity_id: Optional[str] = None
+    record_id: Optional[str] = None
+    event_time: Optional[str] = None
+    available_at: Optional[str] = None
+    amount: Optional[Any] = None
+    event_type: Optional[str] = None
+    additional_fields: Optional[Dict[str, Any]] = None
+
+
+class ValidateCorrectionResponse(BaseModel):
+    is_valid: bool
+    errors: Dict[str, str]
+    normalized_payload: Dict[str, Any]
+    plain_english_summary: str
+
+
+class SaveCorrectionRequest(BaseModel):
+    corrected_payload: Dict[str, Any]
+    correction_reason: Optional[str] = None
+    resolved_by: str = "system_operator"
+
+
+class ReprocessRecordRequest(BaseModel):
+    corrected_payload: Dict[str, Any]
+    correction_reason: Optional[str] = None
+    force_override: bool = False
+
+
+class ReprocessRecordResponse(BaseModel):
+    status: str
+    history_id: Optional[str] = None
+    reject_id: str
+    message: str
+    effective_available_at: Optional[str] = None
+    affected_snapshots_warning: Optional[str] = None
+    retry_run_id: str
+
 
 

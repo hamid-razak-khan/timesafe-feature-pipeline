@@ -3,15 +3,16 @@ import { Layers, ShieldCheck, Sliders, CheckCircle2, ChevronRight, Activity } fr
 
 export default function Navbar({ activePage, setActivePage, onOpenAdvanced, healthStatus }) {
   const navItems = [
-    { id: 'home', label: 'Home' },
+    { id: 'dashboard', label: 'Dashboard' },
     { id: 'wizard', label: 'My Datasets' },
     { id: 'results', label: 'Results' },
+    { id: 'history', label: 'History' },
   ];
 
   return (
     <header className="h-16 border-b border-slate-800 bg-[#0f172a]/80 backdrop-blur-md px-6 sm:px-8 flex items-center justify-between shrink-0 sticky top-0 z-30">
       {/* Brand Logo & Title */}
-      <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActivePage('home')}>
+      <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActivePage('dashboard')}>
         <div className="w-9 h-9 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
           <Layers className="w-5 h-5" />
         </div>
@@ -46,6 +47,14 @@ export default function Navbar({ activePage, setActivePage, onOpenAdvanced, heal
             </button>
           );
         })}
+        {/* Advanced Details Navigation Item */}
+        <button
+          onClick={onOpenAdvanced}
+          className="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all flex items-center space-x-1.5"
+        >
+          <Sliders className="w-3.5 h-3.5 text-blue-400" />
+          <span>Advanced Details</span>
+        </button>
       </nav>
 
       {/* Secondary / Advanced Actions */}
@@ -55,16 +64,6 @@ export default function Navbar({ activePage, setActivePage, onOpenAdvanced, heal
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           <span>{healthStatus?.status === 'ok' ? 'System Online' : 'Connecting...'}</span>
         </div>
-
-        {/* Expandable Advanced / Technical Details Button */}
-        <button
-          onClick={onOpenAdvanced}
-          className="flex items-center space-x-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-slate-100 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-          title="Inspect pipeline runs, quarantine store, and reconciliation audits"
-        >
-          <Sliders className="w-3.5 h-3.5 text-blue-400" />
-          <span>Advanced Details</span>
-        </button>
       </div>
     </header>
   );

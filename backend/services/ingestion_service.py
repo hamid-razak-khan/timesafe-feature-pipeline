@@ -21,6 +21,8 @@ from database.models import (
     PredictionRequest,
     PipelineRun,
     RejectedRecord,
+    SourceRecordHistory,
+    RecordProcessingEvent,
     utc_now,
     ensure_utc,
 )
@@ -62,7 +64,7 @@ class IngestionService:
         raw_record: Any,
         reason: str,
     ) -> RejectedRecord:
-        """Log a rejected record to the operational quarantine table."""
+        """Log a rejected record to the operational quarantine table and history audit."""
         raw_str = raw_record if isinstance(raw_record, str) else json.dumps(raw_record, default=str)
         reject = RejectedRecord(
             reject_id=f"REJ_{uuid.uuid4().hex[:12]}",
@@ -71,9 +73,48 @@ class IngestionService:
             source_row_number=row_number,
             raw_record=raw_str,
             rejection_reason=reason,
+            resolution_status="unresolved",
             rejected_at=utc_now(),
         )
         self.session.add(reject)
+
+        # Parse entity and record ID if available from payload
+        entity = None
+        record_id = None
+        try:
+            payload = json.loads(raw_str) if raw_str.strip().startswith("{") else {}
+            entity = payload.get("customer_id") or payload.get("entity_id") or payload.get("account_id")
+            record_id = payload.get("transaction_id") or payload.get("event_id") or payload.get("record_id")
+        except Exception:
+            pass
+
+        history = SourceRecordHistory(
+            history_id=f"HIST_{reject.reject_id}",
+            record_id=str(record_id) if record_id else reject.reject_id,
+            entity_id=str(entity) if entity else None,
+            source_file=source_file,
+            source_row_number=row_number,
+            processing_status="rejected",
+            rejection_reason=reason,
+            original_payload=raw_str,
+            initial_run_id=run_id,
+            latest_run_id=run_id,
+            first_seen_at=utc_now(),
+            last_processed_at=utc_now(),
+        )
+        self.session.add(history)
+
+        evt = RecordProcessingEvent(
+            event_id=f"EVT_{uuid.uuid4().hex[:12]}",
+            history_id=history.history_id,
+            reject_id=reject.reject_id,
+            run_id=run_id,
+            event_type="quarantined",
+            status="warning",
+            message=f"Quarantined: {reason}",
+            created_at=utc_now(),
+        )
+        self.session.add(evt)
         return reject
 
     def ingest_customers(self, file_path: str, run_id: Optional[str] = None) -> Dict[str, Any]:
@@ -196,6 +237,7 @@ class IngestionService:
         noop_rows = 0
         rejected_rows = 0
         seen_tx_in_batch = set()
+        history_batch = []
 
         if not os.path.exists(file_path):
             err = f"File not found: {file_path}"
@@ -339,6 +381,24 @@ class IngestionService:
                         ingested_at=utc_now(),
                     )
                     batch.append(tx_obj)
+                    hist_obj = SourceRecordHistory(
+                        history_id=f"HIST_TX_{tx_id}",
+                        record_id=tx_id,
+                        entity_id=data["customer_id"],
+                        source_file=source_name,
+                        source_row_number=row_idx,
+                        event_time=data["event_time"],
+                        available_at=data["available_at"],
+                        amount=float(data["amount"]),
+                        event_type=data["transaction_type"],
+                        processing_status="accepted",
+                        original_payload=json.dumps(row, default=str),
+                        initial_run_id=run.run_id,
+                        latest_run_id=run.run_id,
+                        first_seen_at=utc_now(),
+                        last_processed_at=utc_now(),
+                    )
+                    history_batch.append(hist_obj)
                     existing_txs[tx_id] = (
                         data["customer_id"],
                         data["event_time"],
@@ -350,13 +410,17 @@ class IngestionService:
 
                     if len(batch) >= BATCH_SIZE:
                         self.session.bulk_save_objects(batch)
+                        self.session.bulk_save_objects(history_batch)
                         self.session.flush()
                         batch.clear()
+                        history_batch.clear()
 
                 if batch:
                     self.session.bulk_save_objects(batch)
+                    self.session.bulk_save_objects(history_batch)
                     self.session.flush()
                     batch.clear()
+                    history_batch.clear()
 
             run.status = "success"
             run.end_time = utc_now()

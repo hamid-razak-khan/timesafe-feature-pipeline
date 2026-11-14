@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
+import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
 import DatasetWizard from './pages/DatasetWizard';
 import Results from './pages/Results';
+import History from './pages/History';
 import AdvancedModal from './components/AdvancedModal';
 import apiClient from './services/api';
 
 export default function App() {
-  const [activePage, setActivePage] = useState('home');
+  const [activePage, setActivePage] = useState('dashboard');
   const [wizardMode, setWizardMode] = useState('upload'); // 'upload' or 'sample'
   const [latestFeatures, setLatestFeatures] = useState([]);
   const [latestSummary, setLatestSummary] = useState(null);
@@ -56,6 +58,13 @@ export default function App() {
 
       {/* Main Content Viewport */}
       <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-6">
+        {activePage === 'dashboard' && (
+          <Dashboard
+            onNavigate={setActivePage}
+            onOpenAdvanced={() => setIsAdvancedOpen(true)}
+          />
+        )}
+
         {activePage === 'home' && (
           <Home
             onStartUpload={handleStartUpload}
@@ -76,6 +85,12 @@ export default function App() {
             initialFeatures={latestFeatures}
             initialSummary={latestSummary}
             onNavigateToWizard={handleStartUpload}
+          />
+        )}
+
+        {activePage === 'history' && (
+          <History
+            onOpenAdvanced={() => setIsAdvancedOpen(true)}
           />
         )}
       </main>

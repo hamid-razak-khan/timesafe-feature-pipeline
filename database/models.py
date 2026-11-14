@@ -231,9 +231,12 @@ class RejectedRecord(Base):
     source_row_number = Column(Integer, nullable=False)
     raw_record = Column(Text, nullable=False)
     rejection_reason = Column(String(255), nullable=False)
+    resolution_status = Column(String(32), nullable=False, default="unresolved")  # unresolved, corrected, reprocessed
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
     rejected_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
 
     pipeline_run = relationship("PipelineRun", back_populates="rejected_records")
+    corrections = relationship("RecordCorrection", back_populates="rejected_record", cascade="all, delete-orphan")
 
     def to_dict(self):
         return {
@@ -243,5 +246,124 @@ class RejectedRecord(Base):
             "source_row_number": self.source_row_number,
             "raw_record": self.raw_record,
             "rejection_reason": self.rejection_reason,
+            "resolution_status": self.resolution_status or "unresolved",
+            "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
             "rejected_at": self.rejected_at.isoformat() if self.rejected_at else None,
+        }
+
+
+class SourceRecordHistory(Base):
+    """Immutable audit trail of every source record seen by the pipeline."""
+    __tablename__ = "source_record_history"
+
+    history_id = Column(String(64), primary_key=True)
+    record_id = Column(String(64), nullable=True, index=True)
+    entity_id = Column(String(64), nullable=True, index=True)
+    source_file = Column(String(255), nullable=False, index=True)
+    source_row_number = Column(Integer, nullable=False)
+    event_time = Column(DateTime(timezone=True), nullable=True, index=True)
+    available_at = Column(DateTime(timezone=True), nullable=True)
+    amount = Column(Numeric(12, 2), nullable=True)
+    event_type = Column(String(64), nullable=True)
+    processing_status = Column(String(32), nullable=False, default="accepted")  # accepted, rejected, corrected, reprocessed
+    rejection_reason = Column(String(255), nullable=True)
+    original_payload = Column(Text, nullable=False)  # Immutable original JSON
+    initial_run_id = Column(String(64), nullable=False, index=True)
+    latest_run_id = Column(String(64), nullable=True)
+    first_seen_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
+    last_processed_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+
+    corrections = relationship("RecordCorrection", back_populates="history_record", cascade="all, delete-orphan")
+    events = relationship("RecordProcessingEvent", back_populates="history_record", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index("ix_src_hist_ent_status", "entity_id", "processing_status"),
+        Index("ix_src_hist_file_row", "source_file", "source_row_number"),
+    )
+
+    def to_dict(self):
+        return {
+            "history_id": self.history_id,
+            "record_id": self.record_id,
+            "entity_id": self.entity_id,
+            "source_file": self.source_file,
+            "source_row_number": self.source_row_number,
+            "event_time": self.event_time.isoformat() if self.event_time else None,
+            "available_at": self.available_at.isoformat() if self.available_at else None,
+            "amount": float(self.amount) if self.amount is not None else None,
+            "event_type": self.event_type,
+            "processing_status": self.processing_status,
+            "rejection_reason": self.rejection_reason,
+            "original_payload": self.original_payload,
+            "initial_run_id": self.initial_run_id,
+            "latest_run_id": self.latest_run_id,
+            "first_seen_at": self.first_seen_at.isoformat() if self.first_seen_at else None,
+            "last_processed_at": self.last_processed_at.isoformat() if self.last_processed_at else None,
+            "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
+        }
+
+
+class RecordCorrection(Base):
+    """Tracks editable correction versions and revalidation attempts for rejected records."""
+    __tablename__ = "record_corrections"
+
+    correction_id = Column(String(64), primary_key=True)
+    history_id = Column(String(64), ForeignKey("source_record_history.history_id", ondelete="CASCADE"), nullable=True, index=True)
+    reject_id = Column(String(64), ForeignKey("rejected_records.reject_id", ondelete="SET NULL"), nullable=True, index=True)
+    original_payload = Column(Text, nullable=False)
+    corrected_payload = Column(Text, nullable=False)
+    validation_status = Column(String(32), nullable=False, default="draft")  # draft, valid, invalid, reprocessed, failed
+    validation_errors = Column(Text, nullable=True)  # JSON or text error messages
+    correction_reason = Column(String(255), nullable=True)
+    resolved_by = Column(String(64), nullable=False, default="system_operator")
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
+    processed_at = Column(DateTime(timezone=True), nullable=True)
+    retry_run_id = Column(String(64), nullable=True)
+
+    history_record = relationship("SourceRecordHistory", back_populates="corrections")
+    rejected_record = relationship("RejectedRecord", back_populates="corrections")
+
+    def to_dict(self):
+        return {
+            "correction_id": self.correction_id,
+            "history_id": self.history_id,
+            "reject_id": self.reject_id,
+            "original_payload": self.original_payload,
+            "corrected_payload": self.corrected_payload,
+            "validation_status": self.validation_status,
+            "validation_errors": self.validation_errors,
+            "correction_reason": self.correction_reason,
+            "resolved_by": self.resolved_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "processed_at": self.processed_at.isoformat() if self.processed_at else None,
+            "retry_run_id": self.retry_run_id,
+        }
+
+
+class RecordProcessingEvent(Base):
+    """Detailed audit log of state changes for each record."""
+    __tablename__ = "record_processing_events"
+
+    event_id = Column(String(64), primary_key=True)
+    history_id = Column(String(64), ForeignKey("source_record_history.history_id", ondelete="CASCADE"), nullable=True, index=True)
+    reject_id = Column(String(64), nullable=True, index=True)
+    run_id = Column(String(64), nullable=False, index=True)
+    event_type = Column(String(64), nullable=False)  # initial_ingest, quarantined, correction_saved, validation_checked, reprocessed_success, reprocessed_failed
+    status = Column(String(32), nullable=False)  # success, warning, failure, info
+    message = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+    history_record = relationship("SourceRecordHistory", back_populates="events")
+
+    def to_dict(self):
+        return {
+            "event_id": self.event_id,
+            "history_id": self.history_id,
+            "reject_id": self.reject_id,
+            "run_id": self.run_id,
+            "event_type": self.event_type,
+            "status": self.status,
+            "message": self.message,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }

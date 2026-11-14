@@ -1,6 +1,6 @@
 # TimeSafe — Point-in-Time ML Feature Engineering Platform
 
-[![Tests](https://img.shields.io/badge/pytest-50%20passed-10b981.svg)](backend/tests/)
+[![Tests](https://img.shields.io/badge/pytest-57%20passed-10b981.svg)](backend/tests/)
 [![Python](https://img.shields.io/badge/python-3.11+-3b82f6.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-06b6d4.svg)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18.2+-61dafb.svg)](https://react.dev/)
@@ -46,7 +46,10 @@ TimeSafe solves these challenges by enforcing a unified, point-in-time calculati
 - **Deterministic Synthetic Data Generator**: Generates seedable datasets (`--seed 42`) with controlled data-quality edge cases (late arrivals, negative values, orphan foreign keys).
 - **Formal Mathematical Reconciliation**: Verifies the accounting invariant $\text{Input Rows} = \text{Valid Inserted} + \text{Duplicates Skipped} + \text{Quarantined Rejections}$.
 - **Performance-Optimized Ingestion**: SQLite WAL mode and composite indexing achieving over 5,600 rows/second sustained throughput on 100,000-row streams.
-- **Clean 3-Step Web Workflow**: Upload $\rightarrow$ Configure $\rightarrow$ Results & CSV Download, with an expandable Advanced Console for execution telemetry and quarantine inspection.
+- **Executive & Operational Dashboard**: 4 high-level KPI cards, accepted vs rejected quality ratio, processing throughput over time, and a "Needs Attention" alert card.
+- **Unified History (Record & Processing)**: Tab A offers full-text search, multi-faceted filtering (dataset, status, error category, date range), and downloadable CSV export; Tab B tracks execution runs and telemetry.
+- **Safe Correction & Reprocessing**: Review & Fix quarantined records with live dry-run validation, immutable audit log preservation, and mathematical anti-leakage guarantee ($\text{effective\_available\_at} = \max(\text{available\_at}, \text{current\_time})$).
+- **Clean 5-Section Navigation**: `Dashboard`, `My Datasets`, `Results`, `History`, and `Advanced Details`.
 
 ---
 

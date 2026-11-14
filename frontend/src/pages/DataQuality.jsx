@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, Search, RefreshCw, Filter, Eye, AlertTriangle } from 'lucide-react';
+import { ShieldAlert, Search, RefreshCw, Filter, Eye, AlertTriangle, Wrench, CheckCircle2 } from 'lucide-react';
 import apiClient from '../services/api';
+import CorrectionModal from '../components/CorrectionModal';
 
 export default function DataQuality() {
   const [rejects, setRejects] = useState([]);
@@ -8,6 +9,8 @@ export default function DataQuality() {
   const [searchReason, setSearchReason] = useState('');
   const [selectedRun, setSelectedRun] = useState('all');
   const [expandedRecord, setExpandedRecord] = useState(null);
+  const [selectedCorrectionReject, setSelectedCorrectionReject] = useState(null);
+  const [isCorrectionOpen, setIsCorrectionOpen] = useState(false);
 
   const loadRejects = async () => {
     setIsLoading(true);
@@ -99,20 +102,21 @@ export default function DataQuality() {
                 <th className="py-3 px-4 text-right">Row #</th>
                 <th className="py-3 px-4">Rejection Reason</th>
                 <th className="py-3 px-4">Run ID</th>
+                <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4">Rejected At (UTC)</th>
-                <th className="py-3 px-4 text-center">Inspect</th>
+                <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300">
               {isLoading ? (
                 <tr>
-                  <td colSpan="7" className="py-8 text-center text-slate-500 font-sans">
+                  <td colSpan="8" className="py-8 text-center text-slate-500 font-sans">
                     Loading quarantined records...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="py-8 text-center text-slate-500 font-sans">
+                  <td colSpan="8" className="py-8 text-center text-slate-500 font-sans">
                     No quarantined records found. All processed rows satisfied validation rules.
                   </td>
                 </tr>
@@ -128,15 +132,38 @@ export default function DataQuality() {
                       </span>
                     </td>
                     <td className="py-2.5 px-4 text-slate-500">{item.run_id}</td>
+                    <td className="py-2.5 px-4 font-sans">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider border ${
+                        item.resolution_status === 'reprocessed'
+                          ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                          : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                      }`}>
+                        {item.resolution_status || 'unresolved'}
+                      </span>
+                    </td>
                     <td className="py-2.5 px-4 text-slate-400">{item.rejected_at?.replace('T', ' ').substring(0, 19)}</td>
-                    <td className="py-2.5 px-4 text-center">
-                      <button
-                        onClick={() => setExpandedRecord(expandedRecord === item.reject_id ? null : item.reject_id)}
-                        className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-slate-200 transition-colors"
-                        title="View raw record"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
+                    <td className="py-2.5 px-4 text-right">
+                      <div className="flex items-center justify-end space-x-1.5 font-sans">
+                        <button
+                          onClick={() => setExpandedRecord(expandedRecord === item.reject_id ? null : item.reject_id)}
+                          className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-slate-200 transition-colors"
+                          title="View raw record"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setSelectedCorrectionReject(item);
+                            setIsCorrectionOpen(true);
+                          }}
+                          className="px-2 py-0.5 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 text-[11px] font-medium transition-colors flex items-center space-x-1"
+                          title="Review and correct this record"
+                        >
+                          <Wrench className="w-3 h-3" />
+                          <span>Fix</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -145,6 +172,21 @@ export default function DataQuality() {
           </table>
         </div>
       </div>
+
+      {/* Review & Fix Modal */}
+      {selectedCorrectionReject && (
+        <CorrectionModal
+          isOpen={isCorrectionOpen}
+          onClose={() => {
+            setIsCorrectionOpen(false);
+            setSelectedCorrectionReject(null);
+          }}
+          rejectRecord={selectedCorrectionReject}
+          onReprocessSuccess={() => {
+            loadRejects();
+          }}
+        />
+      )}
 
       {/* Record Inspector Modal / Box */}
       {expandedRecord && (
