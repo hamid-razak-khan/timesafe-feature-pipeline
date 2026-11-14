@@ -98,8 +98,8 @@ def compute_features(
 
     # Filter strictly for target entity and point-in-time availability
     eligible_txs = []
-    entity_key = mapping["entity_id"]
-    event_time_key = mapping["event_time"]
+    entity_key = mapping.get("entity_id") or "entity_id"
+    event_time_key = mapping.get("event_time") or "event_time"
     avail_key = mapping.get("available_at")
     amount_key = mapping.get("amount")
     type_key = mapping.get("event_type")
@@ -110,7 +110,7 @@ def compute_features(
         if r_entity is None:
             r_entity = r.get("customer_id") if "customer_id" in r else r.get("entity_id")
 
-        if str(r_entity) != str(customer_id):
+        if r_entity is None or str(r_entity).strip() != str(customer_id).strip():
             continue
 
         ev = r.get(event_time_key) or r.get("event_time")
@@ -293,9 +293,10 @@ def compute_generic_dataset_features(
     """Compute point-in-time features for all unique entities in a generic dataset."""
     entity_col = column_mapping.get("entity_id", "entity_id")
     unique_entities = sorted(list(set(
-        str(r.get(entity_col) or r.get("customer_id") or r.get("entity_id"))
+        str(r.get(entity_col) if r.get(entity_col) is not None else (r.get("customer_id") or r.get("entity_id"))).strip()
         for r in records
-        if (r.get(entity_col) or r.get("customer_id") or r.get("entity_id")) is not None
+        if (r.get(entity_col) is not None or r.get("customer_id") is not None or r.get("entity_id") is not None)
+        and str(r.get(entity_col) if r.get(entity_col) is not None else (r.get("customer_id") or r.get("entity_id"))).strip() not in ("", "None")
     )))
 
     results = []

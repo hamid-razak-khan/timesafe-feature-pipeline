@@ -42,11 +42,37 @@ class ReconciliationService:
         if not run:
             return {"status": "error", "message": f"Run '{run_id}' not found"}
 
-        actual_rejects_count = (
-            self.session.query(func.count(RejectedRecord.reject_id))
-            .filter(RejectedRecord.run_id == run_id)
-            .scalar() or 0
-        )
+        if run.run_type == "full_pipeline":
+            # For an orchestrator run, quarantine records are filed under the child ingestion runs
+            # Find child runs via explicit manifest or timestamp prefix
+            child_ids = []
+            if run.source_file and run.source_file.startswith("batch_manifest:"):
+                child_ids = [
+                    cid.strip() for cid in run.source_file.replace("batch_manifest:", "").split(",") if cid.strip()
+                ]
+
+            if not child_ids and "RUN_FULL_" in run_id:
+                parts = run_id.replace("RUN_FULL_", "").split("_")
+                if len(parts) >= 2:
+                    ts_prefix = f"{parts[0]}_{parts[1]}"
+                    child_ids = [
+                        r.run_id for r in self.session.query(PipelineRun.run_id)
+                        .filter(PipelineRun.run_id.like(f"RUN_{ts_prefix}%"), PipelineRun.run_id != run_id)
+                        .all()
+                    ]
+
+            target_run_ids = [run_id] + child_ids
+            actual_rejects_count = (
+                self.session.query(func.count(RejectedRecord.reject_id))
+                .filter(RejectedRecord.run_id.in_(target_run_ids))
+                .scalar() or 0
+            )
+        else:
+            actual_rejects_count = (
+                self.session.query(func.count(RejectedRecord.reject_id))
+                .filter(RejectedRecord.run_id == run_id)
+                .scalar() or 0
+            )
 
         is_reconciled = (
             run.input_rows == (run.accepted_rows + run.rejected_rows)
@@ -122,6 +148,7 @@ class ReconciliationService:
         report = {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "overall_status": "PASSED" if passed else "FAILED",
+            "total_runs_evaluated": len(run_audits),
             "counts": {
                 "customers": customer_count,
                 "transactions": transaction_count,

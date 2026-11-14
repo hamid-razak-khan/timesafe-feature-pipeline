@@ -166,14 +166,20 @@ export default function AdvancedModal({ isOpen, onClose }) {
                     <div className="p-4 rounded-xl bg-[#0f172a] border border-slate-800">
                       <div className="text-xs text-slate-400">Total Runs Evaluated</div>
                       <div className="text-2xl font-bold text-slate-100 mt-1">
-                        {reconReport.total_runs_evaluated || 0}
+                        {reconReport.total_runs_evaluated ?? reconReport.run_audits?.length ?? 0}
                       </div>
                     </div>
                     <div className="p-4 rounded-xl bg-[#0f172a] border border-slate-800">
                       <div className="text-xs text-slate-400">Overall Audit Status</div>
-                      <div className="text-xl font-bold text-emerald-400 mt-1 flex items-center space-x-1.5">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                        <span>{reconReport.overall_status || 'VERIFIED'}</span>
+                      <div className={`text-xl font-bold mt-1 flex items-center space-x-1.5 ${
+                        reconReport.overall_status === 'PASSED' ? 'text-emerald-400' : 'text-rose-400'
+                      }`}>
+                        {reconReport.overall_status === 'PASSED' ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        ) : (
+                          <AlertTriangle className="w-4 h-4 text-rose-400" />
+                        )}
+                        <span>{reconReport.overall_status || 'PENDING'}</span>
                       </div>
                     </div>
                     <div className="p-4 rounded-xl bg-[#0f172a] border border-slate-800">
@@ -205,3 +211,4 @@ export default function AdvancedModal({ isOpen, onClose }) {
     </div>
   );
 }
+

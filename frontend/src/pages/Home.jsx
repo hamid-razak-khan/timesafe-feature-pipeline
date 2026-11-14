@@ -18,7 +18,7 @@ export default function Home({ onStartUpload, onStartSample }) {
     {
       num: '3',
       title: 'Generate & Download',
-      desc: 'Receive point-in-time correct, zero-leakage ML feature vectors ready for scikit-learn or XGBoost.',
+      desc: 'Receive point-in-time ML feature vectors ready for scikit-learn or XGBoost.',
       icon: FileSpreadsheet,
     },
   ];
@@ -45,7 +45,7 @@ export default function Home({ onStartUpload, onStartSample }) {
         </h1>
 
         <p className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto font-normal leading-relaxed">
-          Transform your historical transactional data into reliable, ML-ready features with guaranteed zero future leakage.
+          Transform your historical transactional data into reliable, ML-ready features designed to eliminate future-data leakage.
         </p>
 
         {/* Primary Call to Actions */}
@@ -125,7 +125,7 @@ export default function Home({ onStartUpload, onStartSample }) {
             <ShieldCheck className="w-4 h-4" />
           </div>
           <div>
-            <h4 className="font-semibold text-slate-200">100% Rerun Safe</h4>
+            <h4 className="font-semibold text-slate-200">Idempotent Rerun Engine</h4>
             <p className="text-slate-500 text-[11px]">Idempotent pipelines and auditable quarantine for bad data.</p>
           </div>
         </div>
@@ -133,3 +133,4 @@ export default function Home({ onStartUpload, onStartSample }) {
     </div>
   );
 }
+

@@ -69,3 +69,4 @@ export default function Navbar({ activePage, setActivePage, onOpenAdvanced, heal
     </header>
   );
 }
+

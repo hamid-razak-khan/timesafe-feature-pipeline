@@ -196,20 +196,48 @@ async def api_upload_preview(
             detail="The uploaded CSV contains no data rows.",
         )
 
-    # Intelligent Auto-Mapping Heuristic
-    def find_match(candidates: List[str]) -> Optional[str]:
-        for col in columns:
-            normalized = col.strip().lower().replace("-", "_").replace(" ", "_")
-            if normalized in candidates or any(c in normalized for c in candidates):
-                return col
+    # Intelligent Auto-Mapping Heuristic with strict priority and distinction between event and entity keys
+    def find_match(candidates: List[str], exclude_patterns: Optional[List[str]] = None) -> Optional[str]:
+        exclude_patterns = exclude_patterns or []
+        normalized_cols = {col: col.strip().lower().replace("-", "_").replace(" ", "_") for col in columns}
+
+        # Priority 1: Exact matches in candidate order
+        for cand in candidates:
+            for col, norm in normalized_cols.items():
+                if norm == cand:
+                    return col
+
+        # Priority 2: Substring matches (guarded by exclusions)
+        for cand in candidates:
+            for col, norm in normalized_cols.items():
+                if any(ex in norm for ex in exclude_patterns):
+                    continue
+                if cand in norm:
+                    return col
+
         return None
 
     mapping = {
-        "entity_id": find_match(["entity_id", "customer_id", "user_id", "account_id", "client_id", "id"]),
-        "event_time": find_match(["event_time", "timestamp", "created_at", "datetime", "date", "time"]),
-        "available_at": find_match(["available_at", "ingested_at", "processed_at", "arrival_time", "loaded_at"]),
-        "amount": find_match(["amount", "value", "total", "price", "cost", "balance"]),
-        "event_type": find_match(["event_type", "transaction_type", "type", "action", "status", "category"]),
+        "event_id": find_match(
+            candidates=["event_id", "transaction_id", "order_id", "shipment_id", "tx_id", "log_id", "id"],
+        ),
+        "entity_id": find_match(
+            candidates=["entity_id", "customer_id", "user_id", "account_id", "client_id", "device_id", "vehicle_id", "subject_id"],
+            exclude_patterns=["event", "transaction", "order", "shipment", "txn", "log", "record", "raw"],
+        ),
+        "event_time": find_match(
+            candidates=["event_time", "event_timestamp", "timestamp", "created_at", "datetime", "posted_at", "date", "time"],
+            exclude_patterns=["available", "arrival", "ingest", "process", "load", "sync", "received"],
+        ),
+        "available_at": find_match(
+            candidates=["available_at", "received_at", "ingested_at", "processed_at", "arrival_time", "loaded_at", "sync_time"],
+        ),
+        "amount": find_match(
+            candidates=["amount", "value", "total", "price", "cost", "balance", "distance_km", "distance", "metric"],
+        ),
+        "event_type": find_match(
+            candidates=["event_type", "event_category", "transaction_type", "type", "action", "status", "category"],
+        ),
     }
 
     # Infer suggested cutoff: Find maximum valid event timestamp and subtract 7 days

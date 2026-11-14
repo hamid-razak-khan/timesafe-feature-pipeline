@@ -88,7 +88,7 @@ export default function Results({ initialFeatures = null, initialSummary = null,
           <div className="flex items-center space-x-2">
             <h2 className="text-2xl font-bold text-slate-100 tracking-tight">Feature Results</h2>
             <span className="text-[11px] font-semibold uppercase px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-400">
-              Zero-Leakage Verified
+              Point-in-Time Features
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
@@ -140,12 +140,22 @@ export default function Results({ initialFeatures = null, initialSummary = null,
           </div>
 
           <div className="bg-[#0f172a] border border-slate-800 rounded-xl p-4 flex items-center space-x-3.5">
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+              summary?.has_availability_warning 
+                ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400' 
+                : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+            }`}>
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-xl font-bold text-emerald-400">100% Guaranteed</div>
-              <div className="text-[11px] text-slate-400">Zero Future-Data Leakage</div>
+              <div className={`text-base font-bold ${
+                summary?.has_availability_warning ? 'text-amber-400' : 'text-emerald-400'
+              }`}>
+                {summary?.has_availability_warning ? 'Event-Time Mode' : 'Dual-Timestamp Gate'}
+              </div>
+              <div className="text-[11px] text-slate-400">
+                {summary?.has_availability_warning ? 'Availability Not Enforced' : 'event_time < T & avail <= T'}
+              </div>
             </div>
           </div>
 
@@ -283,3 +293,4 @@ export default function Results({ initialFeatures = null, initialSummary = null,
     </div>
   );
 }
+

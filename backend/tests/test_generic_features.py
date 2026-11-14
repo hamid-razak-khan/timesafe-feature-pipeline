@@ -113,3 +113,153 @@ def test_api_generate_generic_features(client):
     first_feat = data["all_features"][0]
     assert "event_count_7d" in first_feat
     assert "event_count_30d" in first_feat
+
+
+def test_multi_event_aggregation_per_entity_generic_dataset():
+    """Verify that 18 events across 3 unique entities aggregate into exactly 3 feature snapshots."""
+    cutoff = datetime(2026, 5, 20, 0, 0, 0, tzinfo=timezone.utc)
+    records = []
+    # Create 6 events per entity (3 entities = 18 events)
+    entities = ["ENT_ALPHA", "ENT_BETA", "ENT_GAMMA"]
+    evt_num = 1
+    for ent in entities:
+        for day in range(1, 7):
+            records.append({
+                "event_id": f"EVT_{evt_num:03d}",
+                "entity_id": ent,
+                "event_time": (cutoff - timedelta(days=day)).isoformat(),
+                "available_at": (cutoff - timedelta(days=day, minutes=-15)).isoformat(),
+                "amount": "50.00",
+                "event_type": "status_check",
+            })
+            evt_num += 1
+
+    assert len(records) == 18
+
+    col_map = {
+        "event_id": "event_id",
+        "entity_id": "entity_id",
+        "event_time": "event_time",
+        "available_at": "available_at",
+        "amount": "amount",
+        "event_type": "event_type",
+    }
+
+    results = compute_generic_dataset_features(
+        records=records,
+        column_mapping=col_map,
+        cutoff_time=cutoff,
+    )
+
+    # Must aggregate strictly to 3 entity snapshots, NOT 18 event snapshots
+    assert len(results) == 3
+    result_entities = [r["entity_id"] for r in results]
+    assert sorted(result_entities) == sorted(entities)
+
+    for r in results:
+        # All 6 events are within 7d
+        assert r["event_count_7d"] == 6
+        assert r["event_count_30d"] == 6
+        assert r["total_amount_30d"] == 300.0
+        assert r["avg_amount_30d"] == 50.0
+
+
+def test_auto_mapping_distinguishes_event_id_and_entity_id(client):
+    """Ensure auto-mapping heuristic never misassigns event_id as entity_id."""
+    csv_content = (
+        "event_id,entity_id,event_time,available_at,amount,event_type\n"
+        "EVT_001,ENT_100,2026-05-10T12:00:00Z,2026-05-10T12:05:00Z,99.99,checkout\n"
+        "EVT_002,ENT_100,2026-05-11T14:00:00Z,2026-05-11T14:10:00Z,45.00,checkout\n"
+    )
+    with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False) as f:
+        f.write(csv_content)
+        tmp_name = f.name
+
+    try:
+        with open(tmp_name, "rb") as f:
+            res = client.post("/api/upload-preview", files={"file": ("events.csv", f, "text/csv")})
+        assert res.status_code == 200
+        mapping = res.json()["suggested_mapping"]
+        # Crucial check: entity_id must map to entity_id, NOT event_id
+        assert mapping["entity_id"] == "entity_id"
+        assert mapping["event_id"] == "event_id"
+        assert mapping["event_time"] == "event_time"
+        assert mapping["available_at"] == "available_at"
+        assert mapping["amount"] == "amount"
+        assert mapping["event_type"] == "event_type"
+    finally:
+        if os.path.exists(tmp_name):
+            os.remove(tmp_name)
+
+
+def test_dataset_b_logistics_domain():
+    """Verify point-in-time feature extraction on Dataset B: Logistics schema."""
+    cutoff = datetime(2026, 6, 1, 0, 0, 0, tzinfo=timezone.utc)
+    vehicle_id = "VEHICLE_TRUCK_42"
+
+    logistics_records = [
+        # Past eligible delivery event (within 7d)
+        {
+            "shipment_id": "SHIP_9001",
+            "vehicle_id": vehicle_id,
+            "event_timestamp": (cutoff - timedelta(days=3)).isoformat(),
+            "received_at": (cutoff - timedelta(days=3, minutes=-30)).isoformat(),
+            "distance_km": "120.5",
+            "event_category": "delivery",
+        },
+        # Past eligible route event (within 30d, beyond 7d)
+        {
+            "shipment_id": "SHIP_9002",
+            "vehicle_id": vehicle_id,
+            "event_timestamp": (cutoff - timedelta(days=15)).isoformat(),
+            "received_at": (cutoff - timedelta(days=15, minutes=-20)).isoformat(),
+            "distance_km": "350.0",
+            "event_category": "long_haul",
+        },
+        # Late-arriving event: occurred before cutoff but warehouse received after cutoff (leakage gate must exclude)
+        {
+            "shipment_id": "SHIP_9003",
+            "vehicle_id": vehicle_id,
+            "event_timestamp": (cutoff - timedelta(days=1)).isoformat(),
+            "received_at": (cutoff + timedelta(hours=4)).isoformat(),
+            "distance_km": "500.0",
+            "event_category": "interstate",
+        },
+        # Future event: occurred after cutoff (must exclude)
+        {
+            "shipment_id": "SHIP_9004",
+            "vehicle_id": vehicle_id,
+            "event_timestamp": (cutoff + timedelta(days=2)).isoformat(),
+            "received_at": (cutoff + timedelta(days=2)).isoformat(),
+            "distance_km": "80.0",
+            "event_category": "dispatch",
+        },
+    ]
+
+    col_map = {
+        "event_id": "shipment_id",
+        "entity_id": "vehicle_id",
+        "event_time": "event_timestamp",
+        "available_at": "received_at",
+        "amount": "distance_km",
+        "event_type": "event_category",
+    }
+
+    features = compute_features(
+        transactions=logistics_records,
+        customer_id=vehicle_id,
+        as_of_time=cutoff,
+        column_mapping=col_map,
+    )
+
+    # SHIP_9001 included in 7d and 30d
+    # SHIP_9002 included only in 30d
+    # SHIP_9003 excluded by availability gate
+    # SHIP_9004 excluded by event_time cutoff
+    assert features["event_count_7d"] == 1
+    assert features["event_count_30d"] == 2
+    assert features["total_amount_30d"] == 470.5
+    assert features["avg_amount_30d"] == 235.25
+    assert features["days_since_last_event"] == 3.0
+
+

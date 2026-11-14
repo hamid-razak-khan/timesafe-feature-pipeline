@@ -31,6 +31,7 @@ export default function DatasetWizard({ initialMode, onComplete }) {
 
   // Step 2: Mapping & Features State
   const [columnMapping, setColumnMapping] = useState({
+    event_id: '',
     entity_id: '',
     event_time: '',
     available_at: '',
@@ -77,8 +78,9 @@ export default function DatasetWizard({ initialMode, onComplete }) {
       // Pre-fill suggested mappings
       if (res.suggested_mapping) {
         setColumnMapping({
-          entity_id: res.suggested_mapping.entity_id || res.columns[0] || '',
-          event_time: res.suggested_mapping.event_time || res.columns[1] || '',
+          event_id: res.suggested_mapping.event_id || '',
+          entity_id: res.suggested_mapping.entity_id || '',
+          event_time: res.suggested_mapping.event_time || '',
           available_at: res.suggested_mapping.available_at || '',
           amount: res.suggested_mapping.amount || '',
           event_type: res.suggested_mapping.event_type || '',
@@ -114,8 +116,9 @@ export default function DatasetWizard({ initialMode, onComplete }) {
       // Pre-fill suggested mappings
       if (res.suggested_mapping) {
         setColumnMapping({
-          entity_id: res.suggested_mapping.entity_id || res.columns[0] || '',
-          event_time: res.suggested_mapping.event_time || res.columns[1] || '',
+          event_id: res.suggested_mapping.event_id || '',
+          entity_id: res.suggested_mapping.entity_id || '',
+          event_time: res.suggested_mapping.event_time || '',
           available_at: res.suggested_mapping.available_at || '',
           amount: res.suggested_mapping.amount || '',
           event_type: res.suggested_mapping.event_type || '',
@@ -399,6 +402,23 @@ export default function DatasetWizard({ initialMode, onComplete }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
                 <label className="block font-medium text-slate-300 mb-1">
+                  Which column identifies the individual event? <span className="text-slate-500">(Optional)</span>
+                </label>
+                <select
+                  value={columnMapping.event_id}
+                  onChange={(e) => setColumnMapping({ ...columnMapping, event_id: e.target.value })}
+                  className="w-full bg-[#0a0f1d] border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-blue-500"
+                >
+                  <option value="">-- Select event identifier (optional) --</option>
+                  {columns.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1">E.g., event_id, transaction_id, order_id, shipment_id</p>
+              </div>
+
+              <div>
+                <label className="block font-medium text-slate-300 mb-1">
                   Which column identifies the entity? <span className="text-rose-400">*</span>
                 </label>
                 <select
@@ -411,7 +431,7 @@ export default function DatasetWizard({ initialMode, onComplete }) {
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
-                <p className="text-[11px] text-slate-500 mt-1">E.g., customer_id, account_id, user_id, device_id</p>
+                <p className="text-[11px] text-slate-500 mt-1">E.g., customer_id, account_id, user_id, vehicle_id (groups multiple events)</p>
               </div>
 
               <div>
@@ -701,7 +721,7 @@ export default function DatasetWizard({ initialMode, onComplete }) {
             </div>
             <h2 className="text-2xl font-bold text-slate-100 tracking-tight">Step 3 — Features Generated Successfully</h2>
             <p className="text-xs text-slate-400">
-              Your dataset has been transformed into point-in-time correct, zero-leakage ML feature vectors.
+              Your dataset has been transformed into point-in-time feature vectors.
             </p>
           </div>
 
@@ -722,8 +742,10 @@ export default function DatasetWizard({ initialMode, onComplete }) {
               <p className="text-xl font-bold text-blue-400 mt-1">{generationSummary.duration_seconds}s</p>
             </div>
             <div className="p-4 rounded-2xl bg-[#0f172a] border border-slate-800">
-              <span className="text-[11px] text-slate-400 uppercase font-medium">Anti-Leakage Status</span>
-              <p className="text-xs font-semibold text-emerald-400 mt-1">100% Enforced</p>
+              <span className="text-[11px] text-slate-400 uppercase font-medium">Filtering Mode</span>
+              <p className="text-xs font-semibold text-emerald-400 mt-1 truncate">
+                {generationSummary?.has_availability_warning ? "Event-Time Mode" : "Dual-Timestamp Gate"}
+              </p>
             </div>
           </div>
 

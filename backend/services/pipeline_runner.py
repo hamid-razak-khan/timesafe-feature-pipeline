@@ -79,9 +79,6 @@ class PipelineRunner:
             # 5. Compute Training Labels
             labels = label_service.generate_all_labels(label_version=label_version)
 
-            # 6. Audit & Reconciliation
-            recon_report = reconcile_service.run_full_reconciliation(report_path=report_path)
-
             end_time = utc_now()
             start = ensure_utc(start_time) or start_time
             end = ensure_utc(end_time) or end_time
@@ -99,6 +96,13 @@ class PipelineRunner:
                 pred_res.get("rejected_rows", 0)
             )
 
+            # Record child run manifest for traceable multi-stage reconciliation
+            child_manifest = ",".join(filter(None, [
+                cust_res.get("run_id"),
+                tx_res.get("run_id"),
+                pred_res.get("run_id"),
+            ]))
+            master_run.source_file = f"batch_manifest:{child_manifest}" if child_manifest else "batch_manifest"
             master_run.status = "success"
             master_run.end_time = end_time
             master_run.duration_seconds = duration
@@ -107,6 +111,9 @@ class PipelineRunner:
             master_run.rejected_rows = total_rejected
             master_run.feature_rows = len(features)
             self.session.commit()
+
+            # 6. Audit & Reconciliation (executed after orchestrator status and row counts are committed)
+            recon_report = reconcile_service.run_full_reconciliation(report_path=report_path)
 
             return {
                 "status": "success",

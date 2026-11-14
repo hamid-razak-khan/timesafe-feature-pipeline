@@ -152,7 +152,7 @@ export default function Dashboard({ onNavigate }) {
           icon={ShieldCheck}
           color="emerald"
           badge={{
-            text: metrics?.reconciliation_status === 'PASSED' ? '100% Balanced' : 'Unbalanced',
+            text: metrics?.reconciliation_status === 'PASSED' ? 'Reconciled' : 'Unbalanced',
             className:
               metrics?.reconciliation_status === 'PASSED'
                 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'

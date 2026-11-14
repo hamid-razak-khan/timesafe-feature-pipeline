@@ -1,6 +1,6 @@
 # TimeSafe — Point-in-Time ML Feature Pipeline
 
-[![Tests](https://img.shields.io/badge/pytest-47%20passed-10b981.svg)](backend/tests/)
+[![Tests](https://img.shields.io/badge/pytest-50%20passed-10b981.svg)](backend/tests/)
 [![Python](https://img.shields.io/badge/python-3.11+-3b82f6.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-06b6d4.svg)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18.2+-61dafb.svg)](https://react.dev/)
@@ -214,7 +214,7 @@ python scripts/generate_data.py --customers 20 --transactions 100 --predictions 
 ```powershell
 python -m pytest backend/tests
 ```
-*(All 47 unit, integration, and generic-feature tests run in an isolated SQLite environment and pass.)*
+*(All 50 unit, integration, and generic-feature tests run in an isolated SQLite environment and pass.)*
 
 ---
 
