@@ -142,3 +142,37 @@ class ReconciliationReportResponse(BaseModel):
     integrity_checks: Dict[str, Any]
     run_audits: List[Dict[str, Any]]
 
+
+# 7. Generic Dataset & Feature Wizard Schemas
+class UploadPreviewResponse(BaseModel):
+    filename: str
+    total_rows: int
+    columns: List[str]
+    preview: List[Dict[str, Any]]
+    suggested_mapping: Dict[str, Optional[str]]
+    suggested_cutoff: str
+
+
+class GenerateGenericFeaturesRequest(BaseModel):
+    filename: Optional[str] = None
+    column_mapping: Dict[str, str]
+    cutoff_time: str
+    feature_options: List[str] = Field(
+        default_factory=lambda: ["count_7d", "count_30d", "total_amount_30d", "avg_amount_30d", "days_since_last"]
+    )
+    assume_available_at_event_time: bool = False
+    feature_version: str = "v1"
+
+
+class GenerateGenericFeaturesResponse(BaseModel):
+    status: str
+    total_entities: int
+    total_events: int
+    eligible_events: int
+    duration_seconds: float
+    preview: List[Dict[str, Any]]
+    all_features: List[Dict[str, Any]]
+    leakage_prevention_guarantee: str
+    has_availability_warning: bool
+
+

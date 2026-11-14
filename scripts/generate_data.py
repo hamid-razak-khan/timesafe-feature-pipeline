@@ -334,6 +334,76 @@ def generate_datasets(
     return summary
 
 
+def generate_generic_sample_dataset(
+    output_path: str = "data/raw/generic_sample_transactions.csv",
+    num_entities: int = 25,
+    num_events: int = 150,
+    seed: int = SEED,
+) -> dict:
+    """Generate a domain-neutral generic transactional dataset.
+    
+    Fields:
+    - entity_id (user, account, merchant, vehicle, device)
+    - event_id
+    - event_time
+    - available_at (latency delay modeling)
+    - amount (numerical magnitude)
+    - event_type (order, transfer, payment, refund, audit, login)
+    """
+    random.seed(seed)
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+
+    event_types = ["payment", "transfer", "order", "fee", "refund"]
+    entities = [f"ENT_{i:04d}" for i in range(1, num_entities + 1)]
+    records = []
+
+    # Fixed base timestamp
+    base = datetime(2026, 4, 1, 0, 0, 0, tzinfo=timezone.utc)
+
+    for i in range(1, num_events + 1):
+        entity = random.choice(entities)
+        # Event time spread over 60 days
+        day_offset = random.randint(1, 60)
+        hour_offset = random.randint(0, 23)
+        min_offset = random.randint(0, 59)
+        ev_time = base + timedelta(days=day_offset, hours=hour_offset, minutes=min_offset)
+
+        # Ingestion lag: 5 mins to 6 hours
+        lag_minutes = random.choice([5, 15, 30, 60, 180, 360])
+        avail_time = ev_time + timedelta(minutes=lag_minutes)
+
+        ev_type = random.choices(event_types, weights=[0.45, 0.25, 0.15, 0.10, 0.05])[0]
+        amt = round(random.uniform(10.0, 850.0), 2)
+
+        records.append({
+            "entity_id": entity,
+            "event_id": f"EVT_{i:06d}",
+            "event_time": format_iso(ev_time),
+            "available_at": format_iso(avail_time),
+            "amount": f"{amt:.2f}",
+            "event_type": ev_type,
+        })
+
+    # Shuffle to simulate out-of-order event streams
+    random.shuffle(records)
+
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=["entity_id", "event_id", "event_time", "available_at", "amount", "event_type"]
+        )
+        writer.writeheader()
+        writer.writerows(records)
+
+    return {
+        "file_path": output_path,
+        "total_records": len(records),
+        "total_entities": len(entities),
+        "earliest_time": min(r["event_time"] for r in records),
+        "latest_time": max(r["event_time"] for r in records),
+    }
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Deterministic Synthetic Data Generator for TimeSafe")
     parser.add_argument("--customers", type=int, default=20, help="Number of customers")

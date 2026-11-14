@@ -65,6 +65,23 @@ export const apiClient = {
     return `/api/export/features?feature_version=${version}`;
   },
 
+  // Generic ML Feature Wizard Endpoints
+  uploadPreview: async (file = null, useSample = false) => {
+    const formData = new FormData();
+    if (file) {
+      formData.append('file', file);
+    }
+    formData.append('use_sample', useSample ? 'true' : 'false');
+    const res = await api.post('/upload-preview', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  },
+  generateGenericFeatures: async (payload) => {
+    const res = await api.post('/features/generate-generic', payload);
+    return res.data;
+  },
+
   // Quality & Rejects
   getRejects: async (params = {}) => {
     const res = await api.get('/rejects', { params });

@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import Sidebar from './components/Sidebar';
-import Dashboard from './pages/Dashboard';
-import DataIngestion from './pages/DataIngestion';
-import FeatureExplorer from './pages/FeatureExplorer';
-import DataQuality from './pages/DataQuality';
-import PipelineRuns from './pages/PipelineRuns';
+import Navbar from './components/Navbar';
+import Home from './pages/Home';
+import DatasetWizard from './pages/DatasetWizard';
+import Results from './pages/Results';
+import AdvancedModal from './components/AdvancedModal';
 import apiClient from './services/api';
 
 export default function App() {
-  const [activePage, setActivePage] = useState('dashboard');
+  const [activePage, setActivePage] = useState('home');
+  const [wizardMode, setWizardMode] = useState('upload'); // 'upload' or 'sample'
+  const [latestFeatures, setLatestFeatures] = useState([]);
+  const [latestSummary, setLatestSummary] = useState(null);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [healthStatus, setHealthStatus] = useState(null);
 
   const checkHealth = async () => {
@@ -26,50 +29,70 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  const handleStartUpload = () => {
+    setWizardMode('upload');
+    setActivePage('wizard');
+  };
+
+  const handleStartSample = () => {
+    setWizardMode('sample');
+    setActivePage('wizard');
+  };
+
+  const handleFeaturesGenerated = (features, summary) => {
+    setLatestFeatures(features);
+    setLatestSummary(summary);
+  };
+
   return (
-    <div className="flex h-screen bg-[#0a0f1d] text-slate-100 overflow-hidden font-sans">
-      {/* Sidebar Navigation */}
-      <Sidebar
+    <div className="min-h-screen bg-[#0a0f1d] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+      {/* Primary Simplified Navbar */}
+      <Navbar
         activePage={activePage}
         setActivePage={setActivePage}
+        onOpenAdvanced={() => setIsAdvancedOpen(true)}
         healthStatus={healthStatus}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Navbar */}
-        <header className="h-16 border-b border-slate-800 bg-[#0f172a]/60 backdrop-blur-md px-8 flex items-center justify-between shrink-0">
-          <div className="flex items-center space-x-3">
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400">
-              ML Feature Store
-            </span>
-            <span className="text-xs text-slate-500 font-mono">
-              Domain: E-Commerce Transactional
-            </span>
-          </div>
+      {/* Main Content Viewport */}
+      <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-6">
+        {activePage === 'home' && (
+          <Home
+            onStartUpload={handleStartUpload}
+            onStartSample={handleStartSample}
+          />
+        )}
 
-          <div className="flex items-center space-x-4 text-xs text-slate-400">
-            <span className="flex items-center space-x-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-              <span className="text-slate-300 font-medium">Point-in-Time Correct</span>
-            </span>
-            <span className="text-slate-700">|</span>
-            <span className="text-slate-400">TimeSafe Architecture</span>
-          </div>
-        </header>
+        {activePage === 'wizard' && (
+          <DatasetWizard
+            key={wizardMode}
+            initialMode={wizardMode}
+            onComplete={handleFeaturesGenerated}
+          />
+        )}
 
-        {/* Dynamic Page Container */}
-        <div className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-7xl mx-auto">
-            {activePage === 'dashboard' && <Dashboard onNavigate={setActivePage} />}
-            {activePage === 'ingestion' && <DataIngestion />}
-            {activePage === 'features' && <FeatureExplorer />}
-            {activePage === 'quality' && <DataQuality />}
-            {activePage === 'runs' && <PipelineRuns />}
-          </div>
-        </div>
+        {activePage === 'results' && (
+          <Results
+            initialFeatures={latestFeatures}
+            initialSummary={latestSummary}
+            onNavigateToWizard={handleStartUpload}
+          />
+        )}
       </main>
+
+      {/* Expandable Advanced / Technical Details Modal */}
+      <AdvancedModal
+        isOpen={isAdvancedOpen}
+        onClose={() => setIsAdvancedOpen(false)}
+      />
+
+      {/* Minimal Footer */}
+      <footer className="border-t border-slate-900 bg-[#070b14] py-4 px-6 text-center text-xs text-slate-500">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+          <span>TimeSafe — Point-in-Time ML Feature Store (Dual-Timestamp Anti-Leakage Engine)</span>
+          <span className="font-mono text-[11px] text-slate-600">event_time &lt; T &nbsp;|&nbsp; available_at &le; T</span>
+        </div>
+      </footer>
     </div>
   );
 }
-

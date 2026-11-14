@@ -1,24 +1,26 @@
 # TimeSafe — Point-in-Time ML Feature Pipeline
 
-[![Tests](https://img.shields.io/badge/pytest-43%20passed-10b981.svg)](backend/tests/)
+[![Tests](https://img.shields.io/badge/pytest-47%20passed-10b981.svg)](backend/tests/)
 [![Python](https://img.shields.io/badge/python-3.11+-3b82f6.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-06b6d4.svg)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18.2+-61dafb.svg)](https://react.dev/)
 [![Throughput](https://img.shields.io/badge/benchmark-5%2C739%20rows%2Fsec-f59e0b.svg)](scripts/benchmark.py)
 
-A reproducible, high-performance Data Engineering pipeline and Feature Store designed to eliminate **target leakage** and **train/serve skew** in machine learning feature extraction from transactional data streams.
+A reproducible, high-performance Data Engineering pipeline and Feature Store designed to eliminate **target leakage** and **train/serve skew** in machine learning feature extraction from arbitrary transactional event streams (banking, e-commerce, subscriptions, logistics).
 
 ---
 
 ## 1. Project Overview & Business Scenario
-In an e-commerce platform predicting whether a customer will purchase within the next 7 days, feature values must reflect **only information that was physically observed and available** at prediction cutoff $T$. 
+In real-world predictive ML pipelines (such as predicting customer purchases, loan defaults, subscription churn, or shipment delays), feature values must reflect **only information that was physically observed and available** at prediction cutoff $T$. 
 
 TimeSafe enforces:
+- **General-Purpose Transactional Support**: Easily maps arbitrary CSV headers (e.g. `account_id`, `posted_at`, `ledger_sync_time`) to core anti-leakage primitives.
 - **Zero Target Leakage**: Dual-timestamp filtering (`event_time < T` and `available_at <= T`).
-- **Parity by Design**: Identical feature formulas for batch training datasets and single-record real-time inference.
+- **Parity by Design**: Identical feature formulas for batch training datasets and single-record real-time inference preview.
 - **Watermark-Gated Labels**: Prevents false-negative label leakage on incomplete observation windows.
 - **Rerun Safety & Idempotency**: Identical re-runs produce safe no-ops; conflicting IDs route to quarantine.
 - **Auditable Reconciliation**: Mathematical verification that $\text{input} = \text{accepted} + \text{rejected}$.
+- **Extremely Simple 3-Step UI**: Modern wizard interface (Upload $\rightarrow$ Configure $\rightarrow$ Results & Download) with an expandable Advanced Console for engineer telemetry and audits.
 
 ---
 
@@ -212,11 +214,28 @@ python scripts/generate_data.py --customers 20 --transactions 100 --predictions 
 ```powershell
 python -m pytest backend/tests
 ```
-*(All 43 unit and integration tests run in an isolated SQLite environment and pass.)*
+*(All 47 unit, integration, and generic-feature tests run in an isolated SQLite environment and pass.)*
 
 ---
 
-## 8. Startup Commands
+## 8. Web Interface & Navigation
+
+The application provides a modern, 3-step wizard workflow designed for intuitive use, keeping operational complexity abstracted until needed:
+
+1. **Home**: Clean landing page with an overview of the anti-leakage guarantee and one-click actions: **Upload Dataset** or **Try Sample Dataset**.
+2. **My Datasets (3-Step Feature Wizard)**:
+   - **Step 1: Upload Data** — Drag-and-drop CSV upload, automatic column header detection, row counting, and data preview (or load domain-neutral sample data).
+   - **Step 2: Configure Features** — Flexible column mapping (Entity ID, Event Timestamp, Availability Timestamp, Amount, Event Type), prediction cutoff $T$, availability warning toggle, and feature selection checkboxes with plain-language descriptions.
+   - **Step 3: Results & Download** — Point-in-time calculation summary, feature snapshot preview table, and one-click CSV export.
+3. **Results**: Dedicated feature snapshot explorer with real-time entity search, pagination, and download.
+4. **Advanced Details Console (Drawer / Modal)**:
+   - **Pipeline Runs & Telemetry**: Full execution history, duration, status, and batch triggers.
+   - **Quarantine Store & Rejects**: Live inspector for invalid, conflicting, or non-referential raw records.
+   - **Mathematical Reconciliation**: Verification of the data balance invariant ($\text{input} = \text{accepted} + \text{rejected}$).
+
+---
+
+## 9. Startup Commands
 
 ### Start Backend Server (FastAPI)
 ```powershell
@@ -235,7 +254,7 @@ npm run dev
 
 ---
 
-## 9. CLI Pipeline Execution
+## 10. CLI Pipeline Execution
 
 Run the complete pipeline directly from the command line:
 ```powershell
@@ -255,7 +274,7 @@ Validation Report written to: reports/validation_report.json
 
 ---
 
-## 10. Measured Performance Benchmark (100,000 Rows)
+## 11. Measured Performance Benchmark (100,000 Rows)
 
 Run the real-time benchmark suite:
 ```powershell
@@ -282,7 +301,7 @@ Reconciliation Balance:         99,998 == 70,614 + 0 + 29,384 (MATCH)
 
 ---
 
-## 11. Sample SQL Queries for Integrity Auditing
+## 12. Sample SQL Queries for Integrity Auditing
 
 Verify counts and integrity in SQLite via Python or CLI:
 
@@ -321,7 +340,7 @@ GROUP BY s.snapshot_id;
 
 ---
 
-## 12. PostgreSQL & Supabase Migration Approach
+## 13. PostgreSQL & Supabase Migration Approach
 1. Install PostgreSQL driver: `pip install psycopg2-binary`.
 2. Update `.env`:
    ```bash
@@ -332,7 +351,7 @@ The SQLAlchemy models in `database/models.py` and DDL in `database/schema.sql` a
 
 ---
 
-## 13. GitHub Submission Instructions
+## 14. GitHub Submission Instructions
 1. Initialize repository and commit clean tracked files:
    ```powershell
    git add .

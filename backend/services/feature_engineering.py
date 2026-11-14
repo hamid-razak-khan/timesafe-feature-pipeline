@@ -25,9 +25,21 @@ def compute_features(
     customer_id: str,
     as_of_time: datetime,
     feature_version: str = "v1",
+    column_mapping: Optional[Dict[str, str]] = None,
+    feature_options: Optional[List[str]] = None,
+    assume_available_at_event_time: bool = False,
 ) -> Dict[str, Any]:
-    """Compute point-in-time correct features for a customer as of cutoff T.
+    """Compute point-in-time correct features for an entity as of cutoff T.
     
+    Supports configurable column mappings for domain-neutral datasets:
+        column_mapping: {
+            "entity_id": "customer_id" | "account_id" | "entity_id",
+            "event_time": "event_time" | "timestamp",
+            "available_at": "available_at" | "ingested_at" | None,
+            "amount": "amount" | "value" | None,
+            "event_type": "transaction_type" | "event_type" | None
+        }
+
     Invariants:
     1. Only consider transactions where:
          event_time < as_of_time
@@ -43,6 +55,17 @@ def compute_features(
     5. Zero eligible transactions convention:
          counts = 0, sums = 0.00, avg = 0.00, days_since_last_txn = None.
     """
+    # Active column mapping with sensible defaults
+    mapping = {
+        "entity_id": "customer_id",
+        "event_time": "event_time",
+        "available_at": "available_at",
+        "amount": "amount",
+        "event_type": "transaction_type",
+    }
+    if column_mapping:
+        mapping.update(column_mapping)
+
     # Ensure as_of_time has timezone (assume UTC if naive)
     if as_of_time.tzinfo is None:
         as_of_time = as_of_time.replace(tzinfo=timezone.utc)
@@ -73,14 +96,38 @@ def compute_features(
                     "transaction_type": getattr(item, "transaction_type", None),
                 })
 
-    # Filter strictly for target customer and point-in-time availability
+    # Filter strictly for target entity and point-in-time availability
     eligible_txs = []
+    entity_key = mapping["entity_id"]
+    event_time_key = mapping["event_time"]
+    avail_key = mapping.get("available_at")
+    amount_key = mapping.get("amount")
+    type_key = mapping.get("event_type")
+
     for r in records:
-        if str(r.get("customer_id")) != str(customer_id):
+        # Check entity match (fallback to customer_id or entity_id)
+        r_entity = r.get(entity_key)
+        if r_entity is None:
+            r_entity = r.get("customer_id") if "customer_id" in r else r.get("entity_id")
+
+        if str(r_entity) != str(customer_id):
             continue
 
-        ev = r.get("event_time")
-        av = r.get("available_at")
+        ev = r.get(event_time_key) or r.get("event_time")
+        if ev is None:
+            continue
+
+        av = None
+        if avail_key and avail_key in r and r.get(avail_key):
+            av = r.get(avail_key)
+        elif "available_at" in r and r.get("available_at"):
+            av = r.get("available_at")
+        elif assume_available_at_event_time:
+            av = ev
+
+        if av is None:
+            # Without availability timestamp, cannot verify leakage gate
+            continue
 
         # Parse if string
         if isinstance(ev, str):
@@ -102,21 +149,39 @@ def compute_features(
         # 1. Event must have occurred BEFORE cutoff T (strictly < T)
         # 2. Event must be AVAILABLE by cutoff T (<= T)
         if (ev < as_of_time) and (av <= as_of_time):
-            amt = Decimal(str(r.get("amount", 0.0)))
-            tx_type = str(r.get("transaction_type", "")).lower()
+            amt_val = 0.0
+            if amount_key and amount_key in r and r.get(amount_key) is not None:
+                amt_val = r.get(amount_key)
+            elif "amount" in r and r.get("amount") is not None:
+                amt_val = r.get("amount")
+
+            try:
+                amt = Decimal(str(amt_val))
+            except Exception:
+                amt = Decimal("0.00")
+
+            ev_type = "event"
+            if type_key and type_key in r and r.get(type_key):
+                ev_type = str(r.get(type_key)).lower()
+            elif "transaction_type" in r and r.get("transaction_type"):
+                ev_type = str(r.get("transaction_type")).lower()
+            elif "event_type" in r and r.get("event_type"):
+                ev_type = str(r.get("event_type")).lower()
+
             eligible_txs.append({
-                "transaction_id": r.get("transaction_id"),
                 "event_time": ev,
                 "available_at": av,
                 "amount": amt,
-                "transaction_type": tx_type,
+                "event_type": ev_type,
             })
 
     # Defaults for zero eligible transactions
     txn_count_7d = 0
     txn_count_30d = 0
     total_purchase_amount_30d = Decimal("0.00")
+    total_amount_30d = Decimal("0.00")
     avg_purchase_amount_30d = Decimal("0.00")
+    avg_amount_30d = Decimal("0.00")
     days_since_last_txn: Optional[float] = None
     refund_count_30d = 0
     refund_amount_30d = Decimal("0.00")
@@ -128,12 +193,13 @@ def compute_features(
         days_since_last_txn = round(time_diff.total_seconds() / 86400.0, 4)
 
         purchase_30d_amounts = []
+        all_30d_amounts = []
         refund_30d_amounts = []
 
         for t in eligible_txs:
             ev = t["event_time"]
             amt = t["amount"]
-            tx_type = t["transaction_type"]
+            ev_type = t["event_type"]
 
             # 7-day window: [T - 7d, T)
             if window_7d_start <= ev < as_of_time:
@@ -142,23 +208,34 @@ def compute_features(
             # 30-day window: [T - 30d, T)
             if window_30d_start <= ev < as_of_time:
                 txn_count_30d += 1
-                if tx_type == "purchase":
+                all_30d_amounts.append(amt)
+                if ev_type in ("purchase", "order", "payment", "transfer"):
                     purchase_30d_amounts.append(amt)
-                elif tx_type == "refund":
+                elif ev_type in ("refund", "chargeback"):
                     refund_30d_amounts.append(amt)
+
+        if all_30d_amounts:
+            total_amount_30d = sum(all_30d_amounts)
+            avg_amount_30d = round(total_amount_30d / len(all_30d_amounts), 2)
 
         if purchase_30d_amounts:
             total_purchase_amount_30d = sum(purchase_30d_amounts)
             avg_purchase_amount_30d = round(total_purchase_amount_30d / len(purchase_30d_amounts), 2)
+        elif all_30d_amounts:
+            # Fallback for generic datasets without purchase/refund distinction
+            total_purchase_amount_30d = total_amount_30d
+            avg_purchase_amount_30d = avg_amount_30d
 
         if refund_30d_amounts:
             refund_count_30d = len(refund_30d_amounts)
             refund_amount_30d = sum(refund_30d_amounts)
 
-    return {
+    res = {
         "customer_id": customer_id,
+        "entity_id": customer_id,
         "as_of_time": as_of_time.isoformat(),
         "feature_version": feature_version,
+        # Backward-compatible e-commerce keys
         "txn_count_7d": txn_count_7d,
         "txn_count_30d": txn_count_30d,
         "total_purchase_amount_30d": float(total_purchase_amount_30d),
@@ -166,7 +243,74 @@ def compute_features(
         "days_since_last_txn": days_since_last_txn,
         "refund_count_30d": refund_count_30d,
         "refund_amount_30d": float(refund_amount_30d),
+        # Domain-neutral generic aliases
+        "event_count_7d": txn_count_7d,
+        "event_count_30d": txn_count_30d,
+        "total_amount_30d": float(total_amount_30d),
+        "avg_amount_30d": float(avg_amount_30d),
+        "days_since_last_event": days_since_last_txn,
     }
+
+    # Filter specific options if user explicitly requested a subset
+    if feature_options:
+        filtered_res = {
+            "entity_id": customer_id,
+            "customer_id": customer_id,
+            "as_of_time": as_of_time.isoformat(),
+            "feature_version": feature_version,
+        }
+        if "count_7d" in feature_options:
+            filtered_res["event_count_7d"] = txn_count_7d
+            filtered_res["txn_count_7d"] = txn_count_7d
+        if "count_30d" in feature_options:
+            filtered_res["event_count_30d"] = txn_count_30d
+            filtered_res["txn_count_30d"] = txn_count_30d
+        if "total_amount_30d" in feature_options:
+            filtered_res["total_amount_30d"] = float(total_amount_30d)
+            filtered_res["total_purchase_amount_30d"] = float(total_purchase_amount_30d)
+        if "avg_amount_30d" in feature_options:
+            filtered_res["avg_amount_30d"] = float(avg_amount_30d)
+            filtered_res["avg_purchase_amount_30d"] = float(avg_purchase_amount_30d)
+        if "days_since_last" in feature_options:
+            filtered_res["days_since_last_event"] = days_since_last_txn
+            filtered_res["days_since_last_txn"] = days_since_last_txn
+        if "type_counts" in feature_options:
+            filtered_res["refund_count_30d"] = refund_count_30d
+            filtered_res["refund_amount_30d"] = float(refund_amount_30d)
+        return filtered_res
+
+    return res
+
+
+def compute_generic_dataset_features(
+    records: List[Dict[str, Any]],
+    column_mapping: Dict[str, str],
+    cutoff_time: datetime,
+    feature_options: Optional[List[str]] = None,
+    assume_available_at_event_time: bool = False,
+    feature_version: str = "v1",
+) -> List[Dict[str, Any]]:
+    """Compute point-in-time features for all unique entities in a generic dataset."""
+    entity_col = column_mapping.get("entity_id", "entity_id")
+    unique_entities = sorted(list(set(
+        str(r.get(entity_col) or r.get("customer_id") or r.get("entity_id"))
+        for r in records
+        if (r.get(entity_col) or r.get("customer_id") or r.get("entity_id")) is not None
+    )))
+
+    results = []
+    for ent in unique_entities:
+        feat = compute_features(
+            transactions=records,
+            customer_id=ent,
+            as_of_time=cutoff_time,
+            feature_version=feature_version,
+            column_mapping=column_mapping,
+            feature_options=feature_options,
+            assume_available_at_event_time=assume_available_at_event_time,
+        )
+        results.append(feat)
+    return results
 
 
 class FeatureEngineeringService:
